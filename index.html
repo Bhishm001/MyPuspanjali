@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Puspanjali Stores — POS (Fixed)</title>
+<style>
+  :root{--bg:#f5f7fb;--card:#fff;--muted:#666}
+  *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}
+  body{margin:0;background:var(--bg);color:#111}
+  .container{padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  h1{margin:0;font-size:20px}
+  .muted{color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr 420px;gap:12px}
+  .card{background:var(--card);padding:12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  label{display:block;margin-top:8px;font-size:13px;color:#444}
+  input,select,button,textarea{width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid #dcdfe6}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;font-size:14px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .small{padding:6px;font-size:13px}
+  .right{text-align:right}
+  footer{margin-top:12px;color:#666;font-size:13px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  /* Login overlay */
+  .overlay{position:fixed;inset:0;background:linear-gradient(180deg,rgba(10,20,40,0.45),rgba(10,20,40,0.6));display:flex;align-items:center;justify-content:center;z-index:9999}
+  .login-box{width:360px;background:var(--card);padding:20px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.25);text-align:center}
+  .login-box h2{margin:0 0 4px 0}
+  .login-box p{margin:0 0 12px 0;color:var(--muted)}
+  .error{color:#b00020;margin-top:8px;font-size:13px}
+  .logoutBtn{padding:6px 10px;border-radius:6px;border:1px solid #dcdfe6;background:white;cursor:pointer}
+</style>
+</head>
+<body>
+<!-- LOGIN -->
+<div id="loginOverlay" class="overlay" aria-hidden="false">
+  <div class="login-box" role="dialog" aria-label="POS login">
+    <h2>Puspanjali Stores — Login</h2>
+    <p class="muted">Enter credentials to access POS</p>
+    <label>Username</label>
+    <input id="loginUser" placeholder="Username" autocomplete="username" />
+    <label>Password</label>
+    <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+      <button id="loginBtn">Sign in</button>
+      <button id="demoBtn" class="small">Demo</button>
+    </div>
+    <div id="loginError" class="error" style="display:none"></div>
+    <!-- <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+  Username: <strong>Puspanjali</strong> &nbsp; Password: <strong>Welcome1</strong>
+</div> -->
+<div style="margin-top:10px;font-size:11px;color:#999;">Authorized access only</div>
+
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="container" style="display:none">
+  <header>
+    <div>
+      <h1>Puspanjali Stores — POS</h1>
+      <div class="muted">NAC MARKET SHOP NO 147, Saharpura Sindri, DHANBAD-828122 (Jharkhand)<br>📞 +91-9097397821, 9771996024</div>
+    </div>
+    <div class="actions">
+      <button id="exportCsvTop" class="small">Export Sales CSV</button>
+      <button id="exportJsonTop" class="small">Download JSON</button>
+      <button id="logout" class="logoutBtn">Logout</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3>Products / Stock</h3>
+        <label>Product name</label>
+        <input id="pName" placeholder="Rice / Diya / Incense" />
+        <label>Price (₹)</label>
+        <input id="pPrice" type="number" step="0.01" />
+        <label>Stock quantity</label>
+        <input id="pStock" type="number" />
+        <label>Unit</label>
+        <select id="pUnit">
+          <option value="Pieces">Pieces</option>
+          <option value="Kg">Kg</option>
+          <option value="Gram">Gram</option>
+          <option value="Dozen">Dozen</option>
+          <option value="Bundle">Bundle</option>
+        </select>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="addProduct">Add / Update Product</button>
+          <button id="clearProduct" class="small">Clear</button>
+        </div>
+
+        <label style="margin-top:12px">Search products (filters table)</label>
+        <input id="searchProduct" placeholder="search..." />
+        <table id="productTable"><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Create Sale</h3>
+        <label>Find product</label>
+        <input id="productSearchSelect" placeholder="Type to search products (live)" />
+        <label style="margin-top:8px">Select product from results</label>
+        <select id="selectProduct"><option value="">-- Select product --</option></select>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="qty" type="number" placeholder="Qty" min="1" />
+          <input id="unitPrice" type="number" placeholder="Price" />
+          <button id="addToCart">Add</button>
+        </div>
+
+        <table id="cartTbl"><thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr></thead><tbody></tbody></table>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+          <div style="flex:1">
+            <label>Customer (optional)</label>
+            <input id="custName" placeholder="Customer name" />
+          </div>
+          <div style="width:220px">
+            <div style="display:flex;justify-content:space-between"><div>Subtotal</div><div id="subtotal">₹0.00</div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px"><div>Discount</div><div><input id="discount" type="number" value="0" style="width:90px" /></div></div>
+            <div style="display:flex;justify-content:space-between;font-weight:600;margin-top:6px"><div>Grand Total</div><div id="grand">₹0.00</div></div>
+            <div style="display:flex;gap:8px;margin-top:8px"><button id="saveInvoice">Save & Print</button><button id="clearCart" class="small">Clear</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Sales History</h3>
+        <table id="salesTbl"><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Backup & Restore</h3>
+        <div class="actions" style="margin-bottom:8px">
+          <button id="exportJson" class="small">Export ALL (JSON with summary, stockStatus & invoicesSummary)</button>
+          <button id="exportCsv" class="small">Export Sales CSV (+ invoices & stock & summary)</button>
+        </div>
+
+        <label>Import JSON file (backup)</label>
+        <input id="importFile" type="file" accept=".json" />
+        <label style="margin-top:6px">Import mode</label>
+        <select id="importMode">
+          <option value="merge">Merge with existing (prefer new)</option>
+          <option value="replace">Replace existing data (restore exact)</option>
+        </select>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="importBtn">Import JSON</button>
+          <button id="clearAll" class="small">Clear All Local Data</button>
+        </div>
+
+        <hr style="margin:12px 0" />
+        <div class="muted">
+          <strong>How to move to new device:</strong>
+          <ol>
+            <li>On old device click <em>Export ALL (JSON)</em> and save the file.</li>
+            <li>Copy the file to new device (USB / email / Drive).</li>
+            <li>Open this HTML on new device, choose file under <em>Import JSON</em>, choose <em>Replace</em> and click Import.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Quick Tools</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="downloadDataJson" class="small">Download JSON backup now</button>
+          <button id="downloadDataCsv" class="small">Download Sales CSV now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Standalone offline POS. Export includes summary, stock status and invoices list.</footer>
+</div>
+
+<script>
+/* ---------- CONFIG ---------- */
+const LOGIN_USER = 'Puspanjali';
+const LOGIN_PASS = 'Welcome1';
+const KEY_PRODUCTS = 'pos_products_v1';
+const KEY_SALES = 'pos_sales_v1';
+const RECEIPT_WIDTH_MM = 80; // change to 58 if your printer is 58mm
+
+/* ---------- ELEMENTS ---------- */
+const loginOverlay = document.getElementById('loginOverlay');
+const loginBtn = document.getElementById('loginBtn');
+const demoBtn = document.getElementById('demoBtn');
+const loginError = document.getElementById('loginError');
+const loginUser = document.getElementById('loginUser');
+const loginPass = document.getElementById('loginPass');
+
+const appEl = document.getElementById('app');
+const logoutBtn = document.getElementById('logout');
+const exportCsvTop = document.getElementById('exportCsvTop');
+const exportJsonTop = document.getElementById('exportJsonTop');
+
+const pName = document.getElementById('pName');
+const pPrice = document.getElementById('pPrice');
+const pStock = document.getElementById('pStock');
+const pUnit = document.getElementById('pUnit');
+const addProductBtn = document.getElementById('addProduct');
+const clearProductBtn = document.getElementById('clearProduct');
+const productTable = document.querySelector('#productTable tbody');
+const searchProduct = document.getElementById('searchProduct');
+
+const productSearchSelect = document.getElementById('productSearchSelect');
+const selectProduct = document.getElementById('selectProduct');
+const qtyInput = document.getElementById('qty');
+const unitPrice = document.getElementById('unitPrice');
+const addToCartBtn = document.getElementById('addToCart');
+const cartTbl = document.querySelector('#cartTbl tbody');
+const subtotalEl = document.getElementById('subtotal');
+const discountEl = document.getElementById('discount');
+const grandEl = document.getElementById('grand');
+const saveInvoiceBtn = document.getElementById('saveInvoice');
+const clearCartBtn = document.getElementById('clearCart');
+const salesTbl = document.querySelector('#salesTbl tbody');
+const custName = document.getElementById('custName');
+
+const exportJsonBtn = document.getElementById('exportJson');
+const exportCsvBtn = document.getElementById('exportCsv');
+const importFile = document.getElementById('importFile');
+const importMode = document.getElementById('importMode');
+const importBtn = document.getElementById('importBtn');
+const clearAllBtn = document.getElementById('clearAll');
+const downloadDataJson = document.getElementById('downloadDataJson');
+const downloadDataCsv = document.getElementById('downloadDataCsv');
+
+/* ---------- State ---------- */
+let products = [];
+let sales = [];
+let cart = [];
+let editProductId = null;
+
+/* ---------- Helpers ---------- */
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function save(key, data){ localStorage.setItem(key, JSON.stringify(data)); }
+function load(key){ try{ return JSON.parse(localStorage.getItem(key) || 'null'); }catch(e){return null;} }
+function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- Login ---------- */
+function showApp(){ loginOverlay.style.display='none'; appEl.style.display='block'; loginOverlay.setAttribute('aria-hidden','true'); initApp(); }
+function lockApp(){ loginOverlay.style.display='flex'; appEl.style.display='none'; loginOverlay.setAttribute('aria-hidden','false'); }
+
+loginBtn.addEventListener('click', ()=>{
+  const u = (loginUser.value||'').trim();
+  const p = (loginPass.value||'').trim();
+  if(u === LOGIN_USER && p === LOGIN_PASS){ loginError.style.display='none'; showApp(); }
+  else { loginError.style.display='block'; loginError.textContent = 'Invalid credentials. Try again.'; }
+});
+demoBtn.addEventListener('click', ()=>{ loginUser.value = LOGIN_USER; loginPass.value = LOGIN_PASS; loginBtn.click(); });
+logoutBtn.addEventListener('click', ()=>{ if(confirm('Logout and lock POS?')) lockApp(); });
+
+/* ---------- Rendering ---------- */
+function renderProducts(filter=''){
+  productTable.innerHTML = '';
+  selectProduct.innerHTML = '<option value="">-- Select product --</option>';
+  const rows = products.filter(p=>p.name.toLowerCase().includes((filter||'').toLowerCase()));
+  rows.forEach(p=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(p.name)}${p.unit?'<div style="color:#666;font-size:12px">Unit: '+escapeHtml(p.unit)+'</div>':''}</td>
+                    <td>₹${Number(p.price).toFixed(2)}</td>
+                    <td>${Number(p.stock)||0}</td>
+                    <td><button data-id="${p.id}" class="small edit">Edit</button> <button data-id="${p.id}" class="small del">Delete</button></td>`;
+    productTable.appendChild(tr);
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `${p.name} (${p.unit||'pcs'}) — ₹${Number(p.price).toFixed(2)}`;
+    selectProduct.appendChild(opt);
+  });
+}
+
+function renderCart(){
+  cartTbl.innerHTML = '';
+  let subtotal = 0;
+  cart.forEach((c,i)=>{
+    const amt = Number(c.qty) * Number(c.rate);
+    subtotal += amt;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(c.name)}${c.unit? ' ('+escapeHtml(c.unit)+')':''}</td><td>${c.qty}</td><td>₹${Number(c.rate).toFixed(2)}</td><td>₹${Number(amt).toFixed(2)}</td><td><button data-i="${i}" class="small rem">Remove</button></td>`;
+    cartTbl.appendChild(tr);
+  });
+  subtotalEl.textContent = '₹' + subtotal.toFixed(2);
+  const disc = Number(discountEl.value) || 0;
+  const grand = Math.max(0, subtotal - disc);
+  grandEl.textContent = '₹' + grand.toFixed(2);
+}
+
+function renderSales(){
+  salesTbl.innerHTML = '';
+  sales.slice().reverse().forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(s.inv)}</td><td>${new Date(s.date).toLocaleString()}</td><td>${escapeHtml(s.customer||'')}</td><td>₹${Number(s.total).toFixed(2)}</td><td><button data-id="${s.id}" class="small view">View</button></td>`;
+    salesTbl.appendChild(tr);
+  });
+}
+
+/* ---------- Product CRUD ---------- */
+addProductBtn.addEventListener('click', ()=>{
+  const name = (pName.value||'').trim();
+  const price = Number(pPrice.value) || 0;
+  const stock = Number(pStock.value) || 0;
+  const unit = pUnit.value || 'Pieces';
+  if(!name || price <= 0){ alert('Enter valid name and price'); return; }
+  if(editProductId){
+    const idx = products.findIndex(x=>x.id===editProductId);
+    if(idx >= 0){ products[idx].name = name; products[idx].price = price; products[idx].stock = stock; products[idx].unit = unit; }
+    editProductId = null; addProductBtn.textContent = 'Add / Update Product';
+  } else {
+    products.push({ id: uid(), name, price, stock, unit });
+  }
+  save(KEY_PRODUCTS, products); renderProducts(searchProduct.value); pName.value=''; pPrice.value=''; pStock.value=''; pUnit.value='Pieces';
+});
+
+productTable.addEventListener('click', e=>{
+  if(e.target.classList.contains('edit')){
+    const id = e.target.dataset.id; const p = products.find(x=>x.id===id);
+    if(p){ pName.value=p.name; pPrice.value=p.price; pStock.value=p.stock; pUnit.value=p.unit||'Pieces'; editProductId = id; addProductBtn.textContent='Save Changes'; }
+  }
+  if(e.target.classList.contains('del')){
+    if(!confirm('Delete product?')) return;
+    const id = e.target.dataset.id; products = products.filter(x=>x.id!==id); save(KEY_PRODUCTS, products); renderProducts(searchProduct.value);
+  }
+});
+
+searchProduct.addEventListener('input', e=> renderProducts(e.target.value));
+
+/* ---------- Live filter dropdown ---------- */
+productSearchSelect.addEventListener('input', e=>{
+  const q = (e.target.value||'').trim().toLowerCase();
+  selectProduct.innerHTML = '<option value="">-- Select product --</option>';
+  products.filter(p=>p.name.toLowerCase().includes(q)).forEach(p=>{
+    const opt = document.createElement('option'); opt.value = p.id; opt.textContent = `${p.name} (${p.unit||'pcs'}) — ₹${Number(p.price).toFixed(2)}`; selectProduct.appendChild(opt);
+  });
+});
+selectProduct.addEventListener('focus', ()=> productSearchSelect.dispatchEvent(new Event('input')) );
+
+/* ---------- Cart / Invoice ---------- */
+addToCartBtn.addEventListener('click', ()=>{
+  const pid = selectProduct.value; const q = Number(qtyInput.value) || 0; const rate = Number(unitPrice.value) || 0;
+  if(!pid || q <= 0 || rate <= 0){ alert('Select product and enter qty & rate'); return; }
+  const p = products.find(x=>x.id===pid); if(!p){ alert('Invalid product'); return; }
+  if(p.stock < q){ if(!confirm('Stock is less than requested. Continue?')) return; }
+  cart.push({ id: pid, name: p.name, qty: q, rate: rate, unit: p.unit });
+  renderCart(); qtyInput.value=''; unitPrice.value='';
+});
+
+cartTbl.addEventListener('click', e=>{
+  if(e.target.classList.contains('rem')){
+    const i = Number(e.target.dataset.i); cart.splice(i,1); renderCart();
+  }
+});
+
+clearCartBtn.addEventListener('click', ()=>{ cart = []; renderCart(); });
+
+saveInvoiceBtn.addEventListener('click', ()=>{
+  if(cart.length === 0){ alert('Cart empty'); return; }
+  const subtotal = cart.reduce((s,c)=>s + (Number(c.qty) * Number(c.rate)), 0);
+  const discount = Number(discountEl.value) || 0;
+  const grand = Math.max(0, subtotal - discount);
+  const invoice = {
+    id: uid(),
+    inv: 'INV' + (Math.floor(Date.now()/1000)).toString().slice(-6),
+    date: Date.now(),
+    items: cart.map(c=>({ id:c.id, name:c.name, qty:c.qty, rate:c.rate, unit:c.unit })),
+    subtotal, discount, total: grand,
+    customer: custName.value || ''
+  };
+  // decrement stock
+  invoice.items.forEach(it=>{
+    const p = products.find(x=>x.id===it.id);
+    if(p){ p.stock = Math.max(0, Number(p.stock) - Number(it.qty)); }
+  });
+  sales.push(invoice);
+  save(KEY_PRODUCTS, products); save(KEY_SALES, sales);
+  cart = []; renderCart(); renderProducts(searchProduct.value); renderSales();
+  try{ printInvoiceOnly(invoice); } catch(e){ alert('Saved. Print failed: '+e.message); }
+});
+
+/* ---------- View sale ---------- */
+salesTbl.addEventListener('click', e=>{
+  if(e.target.classList.contains('view')){
+    const id = e.target.dataset.id; const s = sales.find(x=>x.id===id);
+    if(!s) return;
+    let lines = '';
+    (s.items||[]).forEach(it=>{ lines += `${it.name}${it.unit?(' ('+it.unit+')'):''} x ${it.qty} @ ${it.rate} = ${(it.qty*it.rate).toFixed(2)}\n`; });
+    alert(`Invoice: ${s.inv}\nDate: ${new Date(s.date).toLocaleString()}\nCustomer: ${s.customer||'-'}\n\nItems:\n${lines}\n\nTotal: ₹${Number(s.total).toFixed(2)}`);
+  }
+});
+
+/* ---------- Export/Import helpers ---------- */
+function computeSummary(){
+  const totalSalesAmount = sales.reduce((s,x)=>s + (Number(x.total)||0), 0);
+  const totalSalesCount = sales.length;
+  const totalStockQuantity = products.reduce((s,p)=>s + (Number(p.stock)||0), 0);
+  const totalStockValue = products.reduce((s,p)=>s + ((Number(p.stock)||0) * (Number(p.price)||0)), 0);
+  return { totalSalesAmount, totalSalesCount, totalStockQuantity, totalStockValue };
+}
+function buildStockStatus(){ return products.map(p=>({ id:p.id, name:p.name, unit:p.unit||'', quantity:Number(p.stock)||0, unitPrice:Number(p.price)||0, stockValue: ((Number(p.stock)||0)*(Number(p.price)||0)) })); }
+function buildInvoicesSummary(){ return sales.map(s=>({ id:s.id, inv:s.inv, date:new Date(s.date).toISOString(), total:Number(s.total)||0, itemsCount: (s.items || []).length })); }
+function download(filename, content, type='application/json'){ const blob = new Blob([content], {type}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 150); }
+
+/* ---------- Export JSON (with extra arrays) ---------- */
+exportJsonBtn.addEventListener('click', ()=>{
+  const summary = computeSummary();
+  const stockStatus = buildStockStatus();
+  const invoicesSummary = buildInvoicesSummary();
+  const data = { products, sales, summary, stockStatus, invoicesSummary, exportedAt: new Date().toISOString() };
+  download('pos_backup_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.json', JSON.stringify(data,null,2), 'application/json');
+});
+downloadDataJson.addEventListener('click', ()=> exportJsonBtn.click());
+exportJsonTop.addEventListener('click', ()=> exportJsonBtn.click());
+
+/* ---------- Export CSVs ---------- */
+exportCsvBtn.addEventListener('click', ()=>{
+  if(!sales.length){ alert('No sales to export'); return; }
+  // detailed sales CSV
+  let csv = 'Invoice,Date,Customer,Item,Qty,Unit,Rate,Amount\n';
+  sales.forEach(s=>{
+    (s.items||[]).forEach(it=>{
+      csv += `${s.inv},"${new Date(s.date).toLocaleString()}","${(s.customer||'').replace(/"/g,'""')}","${it.name.replace(/"/g,'""')}",${it.qty},${it.unit||''},${it.rate},${(it.qty*it.rate).toFixed(2)}\n`;
+    });
+  });
+  download('pos_sales_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', csv, 'text/csv');
+
+  // invoices summary CSV
+  const invs = buildInvoicesSummary();
+  let invcsv = 'Invoice,Date,Total,ItemsCount\n';
+  invs.forEach(i=>{ invcsv += `${i.inv},"${new Date(i.date).toLocaleString()}",${i.total},${i.itemsCount}\n`; });
+  download('pos_invoices_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', invcsv, 'text/csv');
+
+  // stock status CSV
+  const stocks = buildStockStatus();
+  let scsv = 'Product,Unit,Quantity,UnitPrice,StockValue\n';
+  stocks.forEach(s=>{ scsv += `"${s.name.replace(/"/g,'""')}",${s.unit},${s.quantity},${s.unitPrice},${s.stockValue.toFixed(2)}\n`; });
+  download('pos_stock_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', scsv, 'text/csv');
+
+  // summary CSV
+  const s = computeSummary();
+  let scsum = 'Metric,Value\n';
+  scsum += `Total Sales Amount,${s.totalSalesAmount.toFixed(2)}\n`;
+  scsum += `Total Sales Count,${s.totalSalesCount}\n`;
+  scsum += `Total Stock Quantity,${s.totalStockQuantity}\n`;
+  scsum += `Total Stock Value,${s.totalStockValue.toFixed(2)}\n`;
+  download('pos_summary_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', scsum, 'text/csv');
+});
+downloadDataCsv.addEventListener('click', ()=> exportCsvBtn.click());
+exportCsvTop.addEventListener('click', ()=> exportCsvBtn.click());
+
+/* ---------- Import JSON ---------- */
+importBtn.addEventListener('click', ()=>{
+  const f = importFile.files[0];
+  if(!f){ alert('Choose a JSON file first'); return; }
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const obj = JSON.parse(ev.target.result);
+      if(!obj || (!Array.isArray(obj.products) && !Array.isArray(obj.sales))){
+        if(!obj.products && !obj.sales){ alert('Invalid file format'); return; }
+      }
+      const mode = importMode.value;
+      if(mode === 'replace'){
+        // Replace mode: restore arrays exactly (IDs preserved)
+        products = Array.isArray(obj.products) ? obj.products.map(p=>({
+          id: p.id || uid(),
+          name: p.name || '',
+          price: Number(p.price) || 0,
+          stock: Number(typeof p.stock !== 'undefined' ? p.stock : 0),
+          unit: p.unit || 'Pieces'
+        })) : [];
+        sales = Array.isArray(obj.sales) ? obj.sales.map(s=>({
+          id: s.id || uid(),
+          inv: s.inv || ('INV' + Math.floor(Math.random()*1000000)),
+          date: s.date || Date.now(),
+          items: Array.isArray(s.items) ? s.items.map(it=>({
+            id: it.id || uid(),
+            name: it.name || '',
+            qty: Number(it.qty) || 0,
+            rate: Number(it.rate) || 0,
+            unit: it.unit || ''
+          })) : [],
+          subtotal: Number(s.subtotal) || 0,
+          discount: Number(s.discount) || 0,
+          total: Number(s.total) || 0,
+          customer: s.customer || ''
+        })) : [];
+      } else {
+        // Merge mode: prefer incoming/overwrite by id
+        const existingProductsById = new Map(products.map(p=>[p.id,p]));
+        (obj.products||[]).forEach(p=>{
+          const id = p.id || uid();
+          existingProductsById.set(id, { id, name: p.name||'', price: Number(p.price)||0, stock: Number(typeof p.stock !== 'undefined' ? p.stock : 0), unit: p.unit||'Pieces' });
+        });
+        products = Array.from(existingProductsById.values());
+        const existingSalesById = new Map(sales.map(s=>[s.id,s]));
+        (obj.sales||[]).forEach(s=>{
+          const id = s.id || uid();
+          existingSalesById.set(id, {
+            id, inv: s.inv||('INV'+Math.floor(Math.random()*1000000)), date: s.date||Date.now(),
+            items: Array.isArray(s.items)?s.items.map(it=>({ id: it.id||uid(), name: it.name||'', qty: Number(it.qty)||0, rate: Number(it.rate)||0, unit: it.unit||'' })):[],
+            subtotal: Number(s.subtotal)||0, discount: Number(s.discount)||0, total: Number(s.total)||0, customer: s.customer||''
+          });
+        });
+        sales = Array.from(existingSalesById.values());
+      }
+      save(KEY_PRODUCTS, products); save(KEY_SALES, sales);
+      renderProducts(''); renderSales();
+      alert('Import successful. Data loaded into local storage.');
+    } catch(err){ alert('Import failed: ' + err.message); }
+  };
+  reader.readAsText(f);
+});
+
+/* ---------- Clear all ---------- */
+clearAllBtn.addEventListener('click', ()=>{
+  if(!confirm('Clear all local products and sales? This cannot be undone.')) return;
+  products = []; sales = []; save(KEY_PRODUCTS, products); save(KEY_SALES, sales);
+  renderProducts(''); renderSales(); alert('All cleared.');
+});
+
+/* ---------- Print-only receipt ---------- */
+function buildReceiptHtml(inv){
+  const w = [];
+  w.push(`<div id="printArea" style="width:${RECEIPT_WIDTH_MM}mm;padding:6px;font-family:monospace,'Courier New',sans-serif;">`);
+  w.push('<div style="text-align:center;font-weight:700;margin-bottom:6px">Puspanjali Stores</div>');
+  w.push('<div style="text-align:center;font-size:12px;margin-bottom:6px">NAC MARKET SHOP NO 147, Saharpura Sindri, DHANBAD-828122<br>📞 +91-9097397821,9771996024</div>');
+  w.push(`<div style="font-size:12px;margin-bottom:6px">Invoice#: ${escapeHtml(inv.inv)}<br/>Date: ${new Date(inv.date).toLocaleString()}<br/>Customer: ${escapeHtml(inv.customer||'-')}</div>`);
+  w.push('<hr/>');
+  w.push('<table style="width:100%;font-size:12px">');
+  w.push('<thead><tr><th style="text-align:left">Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Amt</th></tr></thead><tbody>');
+  (inv.items||[]).forEach(it=>{
+    const unitLabel = it.unit ? ' ' + it.unit : '';
+    const name = it.name.length>20 ? it.name.slice(0,20)+'...' : it.name;
+    w.push(`<tr><td style="text-align:left">${escapeHtml(name+unitLabel)}</td><td style="text-align:center">${it.qty}</td><td style="text-align:right">${(it.qty*it.rate).toFixed(2)}</td></tr>`);
+  });
+  w.push('</tbody></table>');
+  w.push('<hr/>');
+  w.push(`<div style="display:flex;justify-content:space-between;font-size:12px"><div>Subtotal</div><div>₹${Number(inv.subtotal).toFixed(2)}</div></div>`);
+  w.push(`<div style="display:flex;justify-content:space-between;font-size:12px"><div>Discount</div><div>₹${Number(inv.discount).toFixed(2)}</div></div>`);
+  w.push(`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:13px"><div>Total</div><div>₹${Number(inv.total).toFixed(2)}</div></div>`);
+  w.push('<div style="margin-top:8px;text-align:center;font-size:12px">Thanks for shopping at Puspanjali Stores</div>');
+  w.push('</div>');
+  return w.join('');
+}
+function printInvoiceOnly(inv){
+  const html = buildReceiptHtml(inv);
+  const win = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
+  win.document.open();
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Receipt</title>');
+  win.document.write(`<style>@page{size:${RECEIPT_WIDTH_MM}mm auto;margin:0}body{margin:0;padding:0;background:#fff}</style>`);
+  win.document.write('</head><body>');
+  win.document.write(html);
+  win.document.write('</body></html>');
+  win.document.close();
+  setTimeout(()=>{ win.focus(); win.print(); }, 300);
+}
+
+/* ---------- Init ---------- */
+(function initApp(){
+  products = load(KEY_PRODUCTS) || [];
+  sales = load(KEY_SALES) || [];
+  if(!Array.isArray(products)) products = [];
+  if(!Array.isArray(sales)) sales = [];
+  if(products.length === 0){
+    products = [
+      { id: uid(), name: 'Incense Sticks (Pkt)', price: 20, stock: 120, unit: 'Pieces' },
+      { id: uid(), name: 'Diya (Large)', price: 15, stock: 60, unit: 'Pieces' }
+    ];
+    save(KEY_PRODUCTS, products);
+  }
+  renderProducts(''); renderSales(); renderCart();
+})();
+lockApp();
+</script>
+</body>
+</html>
