@@ -122,8 +122,12 @@
 
         <label style="margin-top:12px">Search products (filters table)</label>
         <input id="searchProduct" placeholder="search..." />
-        <table id="productTable"><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody></tbody></table>
-      </div>
+        <!-- Replace this -->
+<!-- <table id="productTable"><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody></tbody></table> -->
+
+<!-- With this -->
+<table id="productTable" style="display:none"><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody></tbody></table>
+
 
       <div class="card" style="margin-top:12px">
         <h3>Create Sale</h3>
@@ -789,8 +793,12 @@ function printInvoiceOnly(inv){
     save(KEY_PRODUCTS, products);
   }
   renderProducts(''); renderSales(); renderCart();
+  // keep stocks hidden on load; View Stocks button will toggle visibility
+if (productTableFull) productTableFull.style.display = 'none';
+
 })();
 lockApp();
 </script>
 </body>
 </html>
+
