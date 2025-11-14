@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Puspanjali Stores — POS (Fixed)</title>
+<title>Puspanjali Stores — POS (Updated Receipt)</title>
 <style>
   :root{--bg:#f5f7fb;--card:#fff;--muted:#666}
   *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}
@@ -30,9 +30,37 @@
   .login-box p{margin:0 0 12px 0;color:var(--muted)}
   .error{color:#b00020;margin-top:8px;font-size:13px}
   .logoutBtn{padding:6px 10px;border-radius:6px;border:1px solid #dcdfe6;background:white;cursor:pointer}
+
+  /* Hide product table initially to avoid flash */
+  #productTable { display: none; }
+
+  /* Typeahead dropdown (positioned under the input) */
+  .typeahead-wrap { position:relative; }
+  .typeahead-dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 6px);
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    max-height: 260px;
+    overflow:auto;
+    z-index: 9999;
+    box-shadow: 0 6px 20px rgba(20,30,50,0.08);
+  }
+  .typeahead-item { padding:10px; display:flex; justify-content:space-between; gap:12px; cursor:pointer; border-bottom:1px solid #fafafa; }
+  .typeahead-item:last-child{ border-bottom:0; }
+  .typeahead-item:hover, .typeahead-item.active { background:#f0f8ff; }
+  .typeahead-meta { font-size:12px; color:#666; }
+  .typeahead-right { text-align:right; min-width:90px; font-weight:600; }
+
+  /* small print tweaks to make invoices readable on screen */
+  .no-print { display:none; } /* used for elements we don't want printed if needed */
 </style>
 </head>
 <body>
+
 <!-- LOGIN -->
 <div id="loginOverlay" class="overlay" aria-hidden="false">
   <div class="login-box" role="dialog" aria-label="POS login">
@@ -47,11 +75,7 @@
       <button id="demoBtn" class="small">Demo</button>
     </div>
     <div id="loginError" class="error" style="display:none"></div>
-    <!-- <div style="margin-top:10px;font-size:12px;color:var(--muted)">
-  Username: <strong>Puspanjali</strong> &nbsp; Password: <strong>Welcome1</strong>
-</div> -->
-<div style="margin-top:10px;font-size:11px;color:#999;">Authorized access only</div>
-
+    <div style="margin-top:10px;font-size:11px;color:#999;">Authorized access only</div>
   </div>
 </div>
 
@@ -65,6 +89,10 @@
     <div class="actions">
       <button id="exportCsvTop" class="small">Export Sales CSV</button>
       <button id="exportJsonTop" class="small">Download JSON</button>
+
+      <!-- View Stocks toggle -->
+      <button id="viewStocksBtn" class="small" aria-pressed="false">View Stocks</button>
+
       <button id="logout" class="logoutBtn">Logout</button>
     </div>
   </header>
@@ -100,7 +128,13 @@
       <div class="card" style="margin-top:12px">
         <h3>Create Sale</h3>
         <label>Find product</label>
-        <input id="productSearchSelect" placeholder="Type to search products (live)" />
+
+        <!-- Typeahead wrapper: input + dropdown -->
+        <div class="typeahead-wrap">
+          <input id="productSearchSelect" placeholder="Type to search products (live)" autocomplete="off" />
+          <div id="productDropdown" class="typeahead-dropdown" style="display:none"></div>
+        </div>
+
         <label style="margin-top:8px">Select product from results</label>
         <select id="selectProduct"><option value="">-- Select product --</option></select>
 
@@ -182,7 +216,7 @@ const LOGIN_USER = 'Puspanjali';
 const LOGIN_PASS = 'Welcome1';
 const KEY_PRODUCTS = 'pos_products_v1';
 const KEY_SALES = 'pos_sales_v1';
-const RECEIPT_WIDTH_MM = 80; // change to 58 if your printer is 58mm
+let RECEIPT_WIDTH_MM = 80; // change to 58 if your printer is 58mm
 
 /* ---------- ELEMENTS ---------- */
 const loginOverlay = document.getElementById('loginOverlay');
@@ -203,10 +237,12 @@ const pStock = document.getElementById('pStock');
 const pUnit = document.getElementById('pUnit');
 const addProductBtn = document.getElementById('addProduct');
 const clearProductBtn = document.getElementById('clearProduct');
-const productTable = document.querySelector('#productTable tbody');
+const productTableBody = document.querySelector('#productTable tbody');
+const productTableFull = document.getElementById('productTable');
 const searchProduct = document.getElementById('searchProduct');
 
 const productSearchSelect = document.getElementById('productSearchSelect');
+const productDropdown = document.getElementById('productDropdown');
 const selectProduct = document.getElementById('selectProduct');
 const qtyInput = document.getElementById('qty');
 const unitPrice = document.getElementById('unitPrice');
@@ -229,6 +265,8 @@ const clearAllBtn = document.getElementById('clearAll');
 const downloadDataJson = document.getElementById('downloadDataJson');
 const downloadDataCsv = document.getElementById('downloadDataCsv');
 
+const viewStocksBtn = document.getElementById('viewStocksBtn');
+
 /* ---------- State ---------- */
 let products = [];
 let sales = [];
@@ -240,12 +278,17 @@ function uid(){ return Date.now().toString(36) + Math.random().toString(36).slic
 function save(key, data){ localStorage.setItem(key, JSON.stringify(data)); }
 function load(key){ try{ return JSON.parse(localStorage.getItem(key) || 'null'); }catch(e){return null;} }
 function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatCurrency(n){ return '₹ ' + Number(n||0).toFixed(2); }
+function clamp(n,min,max){return Math.max(min,Math.min(max,n)); }
+
+/* Debounce helper (safe fallback) */
+function debounce(fn, delay=200){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), delay); }; }
 
 /* ---------- Login ---------- */
 function showApp(){ loginOverlay.style.display='none'; appEl.style.display='block'; loginOverlay.setAttribute('aria-hidden','true'); initApp(); }
 function lockApp(){ loginOverlay.style.display='flex'; appEl.style.display='none'; loginOverlay.setAttribute('aria-hidden','false'); }
 
-loginBtn.addEventListener('click', ()=>{
+loginBtn.addEventListener('click', ()=> {
   const u = (loginUser.value||'').trim();
   const p = (loginPass.value||'').trim();
   if(u === LOGIN_USER && p === LOGIN_PASS){ loginError.style.display='none'; showApp(); }
@@ -256,7 +299,7 @@ logoutBtn.addEventListener('click', ()=>{ if(confirm('Logout and lock POS?')) lo
 
 /* ---------- Rendering ---------- */
 function renderProducts(filter=''){
-  productTable.innerHTML = '';
+  productTableBody.innerHTML = '';
   selectProduct.innerHTML = '<option value="">-- Select product --</option>';
   const rows = products.filter(p=>p.name.toLowerCase().includes((filter||'').toLowerCase()));
   rows.forEach(p=>{
@@ -265,7 +308,7 @@ function renderProducts(filter=''){
                     <td>₹${Number(p.price).toFixed(2)}</td>
                     <td>${Number(p.stock)||0}</td>
                     <td><button data-id="${p.id}" class="small edit">Edit</button> <button data-id="${p.id}" class="small del">Delete</button></td>`;
-    productTable.appendChild(tr);
+    productTableBody.appendChild(tr);
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = `${p.name} (${p.unit||'pcs'}) — ₹${Number(p.price).toFixed(2)}`;
@@ -291,19 +334,9 @@ function renderCart(){
 
 function renderSales(){
   salesTbl.innerHTML = '';
-  // show newest first
-  sales.slice().reverse().forEach(s => {
+  sales.slice().reverse().forEach(s=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${escapeHtml(s.inv)}</td>
-      <td>${new Date(s.date).toLocaleString()}</td>
-      <td>${escapeHtml(s.customer||'')}</td>
-      <td>₹${Number(s.total).toFixed(2)}</td>
-      <td>
-        <button data-id="${s.id}" class="small view">View</button>
-        <button data-id="${s.id}" class="small reprint">Reprint</button>
-      </td>
-    `;
+    tr.innerHTML = `<td>${escapeHtml(s.inv)}</td><td>${new Date(s.date).toLocaleString()}</td><td>${escapeHtml(s.customer||'')}</td><td>₹${Number(s.total).toFixed(2)}</td><td><button data-id="${s.id}" class="small view">View</button> <button data-id="${s.id}" class="small reprint">Reprint</button></td>`;
     salesTbl.appendChild(tr);
   });
 }
@@ -317,15 +350,15 @@ addProductBtn.addEventListener('click', ()=>{
   if(!name || price <= 0){ alert('Enter valid name and price'); return; }
   if(editProductId){
     const idx = products.findIndex(x=>x.id===editProductId);
-    if(idx >= 0){ products[idx].name = name; products[idx].price = price; products[idx].stock = stock; products[idx].unit = unit; }
+    if(idx >= 0){ products[idx].name = name; products[idx].price = price; products[idx].stock = stock; products[idx].unit = unit; products[idx].updated_at = new Date().toISOString(); }
     editProductId = null; addProductBtn.textContent = 'Add / Update Product';
   } else {
-    products.push({ id: uid(), name, price, stock, unit });
+    products.push({ id: uid(), name, price, stock, unit, updated_at: new Date().toISOString() });
   }
   save(KEY_PRODUCTS, products); renderProducts(searchProduct.value); pName.value=''; pPrice.value=''; pStock.value=''; pUnit.value='Pieces';
 });
 
-productTable.addEventListener('click', e=>{
+productTableBody.addEventListener('click', e=>{
   if(e.target.classList.contains('edit')){
     const id = e.target.dataset.id; const p = products.find(x=>x.id===id);
     if(p){ pName.value=p.name; pPrice.value=p.price; pStock.value=p.stock; pUnit.value=p.unit||'Pieces'; editProductId = id; addProductBtn.textContent='Save Changes'; }
@@ -338,15 +371,111 @@ productTable.addEventListener('click', e=>{
 
 searchProduct.addEventListener('input', e=> renderProducts(e.target.value));
 
-/* ---------- Live filter dropdown ---------- */
-productSearchSelect.addEventListener('input', e=>{
-  const q = (e.target.value||'').trim().toLowerCase();
-  selectProduct.innerHTML = '<option value="">-- Select product --</option>';
-  products.filter(p=>p.name.toLowerCase().includes(q)).forEach(p=>{
-    const opt = document.createElement('option'); opt.value = p.id; opt.textContent = `${p.name} (${p.unit||'pcs'}) — ₹${Number(p.price).toFixed(2)}`; selectProduct.appendChild(opt);
+/* ---------- View Stocks toggle ---------- */
+if(viewStocksBtn && productTableFull){
+  // initialize hidden; CSS prevents flash
+  productTableFull.style.display = 'none';
+  viewStocksBtn.setAttribute('aria-pressed','false');
+  viewStocksBtn.textContent = 'View Stocks';
+
+  viewStocksBtn.addEventListener('click', () => {
+    const isHidden = (getComputedStyle(productTableFull).display === 'none');
+    if(isHidden){
+      productTableFull.style.display = '';
+      viewStocksBtn.textContent = 'Hide Stocks';
+      viewStocksBtn.setAttribute('aria-pressed','true');
+    } else {
+      productTableFull.style.display = 'none';
+      viewStocksBtn.textContent = 'View Stocks';
+      viewStocksBtn.setAttribute('aria-pressed','false');
+    }
   });
+}
+
+/* ---------- Typeahead / Self-dropdown for Billing ---------- */
+const taInput = document.getElementById('productSearchSelect');
+const taDropdown = document.getElementById('productDropdown');
+let taResults = [];
+let taActiveIndex = -1;
+
+function taRender() {
+  if(!taResults || taResults.length === 0) { taDropdown.style.display = 'none'; taActiveIndex = -1; return; }
+  const html = taResults.map((p, i) => {
+    return `<div class="typeahead-item" data-idx="${i}">
+      <div>
+        <div style="font-weight:600">${escapeHtml(p.name)}</div>
+        <div class="typeahead-meta">${escapeHtml(p.sku || '')} · ${p.unit || ''} · Stock: ${Number(p.stock||0)}</div>
+      </div>
+      <div class="typeahead-right">₹${Number(p.price).toFixed(2)}</div>
+    </div>`;
+  }).join('');
+  taDropdown.innerHTML = html;
+  taDropdown.style.display = 'block';
+  taActiveIndex = -1;
+}
+function taSetActive(n) {
+  const items = taDropdown.querySelectorAll('.typeahead-item');
+  items.forEach((it, idx) => it.classList.toggle('active', idx === n));
+  taActiveIndex = n;
+  if(items[taActiveIndex]) items[taActiveIndex].scrollIntoView({block:'nearest'});
+}
+function taSelectIndex(n) {
+  const p = taResults[n];
+  if(!p) return;
+  // ensure option exists in selectProduct
+  if(selectProduct) {
+    let opt = selectProduct.querySelector(`option[value="${p.id}"]`);
+    if(!opt) {
+      opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} (${p.unit||'pcs'}) — ₹${Number(p.price).toFixed(2)}`;
+      selectProduct.appendChild(opt);
+    }
+    selectProduct.value = p.id;
+  }
+  if(unitPrice) unitPrice.value = Number(p.price) || 0;
+  if(qtyInput) { qtyInput.value = 1; qtyInput.focus(); }
+  taDropdown.style.display = 'none';
+  taInput.value = '';
+}
+
+function taSearch(q) {
+  const s = (q||'').trim().toLowerCase();
+  if(!s) { taResults = []; taRender(); return; }
+  taResults = products.filter(p => (p.name && p.name.toLowerCase().includes(s)) || (p.sku && p.sku.toLowerCase().includes(s))).slice(0,12);
+  taRender();
+}
+
+const _debounce = debounce;
+
+if(taInput){
+  taInput.addEventListener('input', _debounce((e)=>{
+    taSearch(e.target.value);
+  }, 160));
+
+  taInput.addEventListener('keydown', (ev)=>{
+    if(taDropdown.style.display === 'none') return;
+    if(ev.key === 'ArrowDown'){ ev.preventDefault(); taSetActive(Math.min(taActiveIndex + 1, taResults.length - 1)); }
+    else if(ev.key === 'ArrowUp'){ ev.preventDefault(); taSetActive(Math.max(taActiveIndex - 1, 0)); }
+    else if(ev.key === 'Enter'){ ev.preventDefault(); if(taActiveIndex >= 0) taSelectIndex(taActiveIndex); else if(taResults.length===1) taSelectIndex(0); }
+    else if(ev.key === 'Escape'){ taDropdown.style.display = 'none'; }
+  });
+}
+
+if(taDropdown){
+  taDropdown.addEventListener('click', (ev)=>{
+    const item = ev.target.closest('.typeahead-item');
+    if(!item) return;
+    const idx = Number(item.dataset.idx);
+    taSelectIndex(idx);
+  });
+}
+
+document.addEventListener('click', (ev)=>{
+  if(!taInput || !taDropdown) return;
+  if(ev.target === taInput || taDropdown.contains(ev.target)) return;
+  taDropdown.style.display = 'none';
 });
-selectProduct.addEventListener('focus', ()=> productSearchSelect.dispatchEvent(new Event('input')) );
 
 /* ---------- Cart / Invoice ---------- */
 addToCartBtn.addEventListener('click', ()=>{
@@ -377,12 +506,13 @@ saveInvoiceBtn.addEventListener('click', ()=>{
     date: Date.now(),
     items: cart.map(c=>({ id:c.id, name:c.name, qty:c.qty, rate:c.rate, unit:c.unit })),
     subtotal, discount, total: grand,
-    customer: custName.value || ''
+    customer: custName.value || '',
+    updated_at: new Date().toISOString()
   };
   // decrement stock
   invoice.items.forEach(it=>{
     const p = products.find(x=>x.id===it.id);
-    if(p){ p.stock = Math.max(0, Number(p.stock) - Number(it.qty)); }
+    if(p){ p.stock = Math.max(0, Number(p.stock) - Number(it.qty)); p.updated_at = new Date().toISOString(); }
   });
   sales.push(invoice);
   save(KEY_PRODUCTS, products); save(KEY_SALES, sales);
@@ -390,37 +520,31 @@ saveInvoiceBtn.addEventListener('click', ()=>{
   try{ printInvoiceOnly(invoice); } catch(e){ alert('Saved. Print failed: '+e.message); }
 });
 
-/* ---------- View sale ---------- */
-salesTbl.addEventListener('click', e => {
-  // View details (existing)
+/* ---------- View sale & Reprint ---------- */
+salesTbl.addEventListener('click', e=>{
+  // View details
   if(e.target.classList.contains('view')){
     const id = e.target.dataset.id;
-    const s = sales.find(x => x.id === id);
+    const s = sales.find(x=>x.id === id);
     if(!s) return;
     let lines = '';
-    (s.items||[]).forEach(it => {
-      lines += `${it.name}${it.unit?(' ('+it.unit+')'):''} x ${it.qty} @ ${it.rate} = ${(it.qty*it.rate).toFixed(2)}\n`;
-    });
+    (s.items||[]).forEach(it => { lines += `${it.name}${it.unit?(' ('+it.unit+')'):''} x ${it.qty} @ ${it.rate} = ${(it.qty*it.rate).toFixed(2)}\n`; });
     alert(`Invoice: ${s.inv}\nDate: ${new Date(s.date).toLocaleString()}\nCustomer: ${s.customer||'-'}\n\nItems:\n${lines}\n\nTotal: ₹${Number(s.total).toFixed(2)}`);
   }
 
-  // Reprint (new)
+  // Reprint (calls existing print function)
   if(e.target.classList.contains('reprint')){
     const id = e.target.dataset.id;
-    const s = sales.find(x => x.id === id);
+    const s = sales.find(x=>x.id === id);
     if(!s) return alert('Invoice not found for reprint.');
     try {
-      // Use the existing print function you already have
       printInvoiceOnly(s);
-      // Optional: give user feedback
-      // alert('Reprint sent to print dialog.');
     } catch(err){
       console.error('Reprint failed', err);
       alert('Reprint failed: ' + (err && err.message ? err.message : err));
     }
   }
 });
-
 
 /* ---------- Export/Import helpers ---------- */
 function computeSummary(){
@@ -448,7 +572,6 @@ exportJsonTop.addEventListener('click', ()=> exportJsonBtn.click());
 /* ---------- Export CSVs ---------- */
 exportCsvBtn.addEventListener('click', ()=>{
   if(!sales.length){ alert('No sales to export'); return; }
-  // detailed sales CSV
   let csv = 'Invoice,Date,Customer,Item,Qty,Unit,Rate,Amount\n';
   sales.forEach(s=>{
     (s.items||[]).forEach(it=>{
@@ -457,19 +580,16 @@ exportCsvBtn.addEventListener('click', ()=>{
   });
   download('pos_sales_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', csv, 'text/csv');
 
-  // invoices summary CSV
   const invs = buildInvoicesSummary();
   let invcsv = 'Invoice,Date,Total,ItemsCount\n';
   invs.forEach(i=>{ invcsv += `${i.inv},"${new Date(i.date).toLocaleString()}",${i.total},${i.itemsCount}\n`; });
   download('pos_invoices_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', invcsv, 'text/csv');
 
-  // stock status CSV
   const stocks = buildStockStatus();
   let scsv = 'Product,Unit,Quantity,UnitPrice,StockValue\n';
   stocks.forEach(s=>{ scsv += `"${s.name.replace(/"/g,'""')}",${s.unit},${s.quantity},${s.unitPrice},${s.stockValue.toFixed(2)}\n`; });
   download('pos_stock_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', scsv, 'text/csv');
 
-  // summary CSV
   const s = computeSummary();
   let scsum = 'Metric,Value\n';
   scsum += `Total Sales Amount,${s.totalSalesAmount.toFixed(2)}\n`;
@@ -494,36 +614,30 @@ importBtn.addEventListener('click', ()=>{
       }
       const mode = importMode.value;
       if(mode === 'replace'){
-        // Replace mode: restore arrays exactly (IDs preserved)
         products = Array.isArray(obj.products) ? obj.products.map(p=>({
           id: p.id || uid(),
           name: p.name || '',
           price: Number(p.price) || 0,
           stock: Number(typeof p.stock !== 'undefined' ? p.stock : 0),
-          unit: p.unit || 'Pieces'
+          unit: p.unit || 'Pieces',
+          updated_at: p.updated_at || new Date().toISOString()
         })) : [];
         sales = Array.isArray(obj.sales) ? obj.sales.map(s=>({
           id: s.id || uid(),
           inv: s.inv || ('INV' + Math.floor(Math.random()*1000000)),
           date: s.date || Date.now(),
-          items: Array.isArray(s.items) ? s.items.map(it=>({
-            id: it.id || uid(),
-            name: it.name || '',
-            qty: Number(it.qty) || 0,
-            rate: Number(it.rate) || 0,
-            unit: it.unit || ''
-          })) : [],
+          items: Array.isArray(s.items) ? s.items.map(it=>({ id: it.id || uid(), name: it.name || '', qty: Number(it.qty) || 0, rate: Number(it.rate) || 0, unit: it.unit || '' })) : [],
           subtotal: Number(s.subtotal) || 0,
           discount: Number(s.discount) || 0,
           total: Number(s.total) || 0,
-          customer: s.customer || ''
+          customer: s.customer || '',
+          updated_at: s.updated_at || new Date().toISOString()
         })) : [];
       } else {
-        // Merge mode: prefer incoming/overwrite by id
         const existingProductsById = new Map(products.map(p=>[p.id,p]));
         (obj.products||[]).forEach(p=>{
           const id = p.id || uid();
-          existingProductsById.set(id, { id, name: p.name||'', price: Number(p.price)||0, stock: Number(typeof p.stock !== 'undefined' ? p.stock : 0), unit: p.unit||'Pieces' });
+          existingProductsById.set(id, { id, name: p.name||'', price: Number(p.price)||0, stock: Number(typeof p.stock !== 'undefined' ? p.stock : 0), unit: p.unit||'Pieces', updated_at: p.updated_at || new Date().toISOString() });
         });
         products = Array.from(existingProductsById.values());
         const existingSalesById = new Map(sales.map(s=>[s.id,s]));
@@ -532,7 +646,7 @@ importBtn.addEventListener('click', ()=>{
           existingSalesById.set(id, {
             id, inv: s.inv||('INV'+Math.floor(Math.random()*1000000)), date: s.date||Date.now(),
             items: Array.isArray(s.items)?s.items.map(it=>({ id: it.id||uid(), name: it.name||'', qty: Number(it.qty)||0, rate: Number(it.rate)||0, unit: it.unit||'' })):[],
-            subtotal: Number(s.subtotal)||0, discount: Number(s.discount)||0, total: Number(s.total)||0, customer: s.customer||''
+            subtotal: Number(s.subtotal)||0, discount: Number(s.discount)||0, total: Number(s.total)||0, customer: s.customer||'', updated_at: s.updated_at || new Date().toISOString()
           });
         });
         sales = Array.from(existingSalesById.values());
@@ -552,41 +666,113 @@ clearAllBtn.addEventListener('click', ()=>{
   renderProducts(''); renderSales(); alert('All cleared.');
 });
 
-/* ---------- Print-only receipt ---------- */
+/* ---------- New: formatted receipt builder & print ---------- */
 function buildReceiptHtml(inv){
+  // inv: invoice object with items array [{ name, qty, rate, unit }]
   const w = [];
-  w.push(`<div id="printArea" style="width:${RECEIPT_WIDTH_MM}mm;padding:6px;font-family:monospace,'Courier New',sans-serif;">`);
-  w.push('<div style="text-align:center;font-weight:700;margin-bottom:6px">Puspanjali Stores</div>');
-  w.push('<div style="text-align:center;font-size:12px;margin-bottom:6px">NAC MARKET SHOP NO 147, Saharpura Sindri, DHANBAD-828122<br>📞 +91-9097397821,9771996024</div>');
-  w.push(`<div style="font-size:12px;margin-bottom:6px">Invoice#: ${escapeHtml(inv.inv)}<br/>Date: ${new Date(inv.date).toLocaleString()}<br/>Customer: ${escapeHtml(inv.customer||'-')}</div>`);
-  w.push('<hr/>');
-  w.push('<table style="width:100%;font-size:12px">');
-  w.push('<thead><tr><th style="text-align:left">Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Amt</th></tr></thead><tbody>');
-  (inv.items||[]).forEach(it=>{
-    const unitLabel = it.unit ? ' ' + it.unit : '';
-    const name = it.name.length>20 ? it.name.slice(0,20)+'...' : it.name;
-    w.push(`<tr><td style="text-align:left">${escapeHtml(name+unitLabel)}</td><td style="text-align:center">${it.qty}</td><td style="text-align:right">${(it.qty*it.rate).toFixed(2)}</td></tr>`);
+  const width = RECEIPT_WIDTH_MM; // mm
+  w.push(`<div id="printArea" style="width:${width}mm;padding:6px;font-family:monospace,'Courier New',sans-serif;font-size:12px">`);
+
+  // Store header
+  w.push('<div style="text-align:center;font-weight:700;font-size:14px;margin-bottom:6px">Puspanjali Stores</div>');
+  w.push('<div style="text-align:center;font-size:11px;margin-bottom:6px">NAC MARKET SHOP NO 147, Saharpura Sindri, DHANBAD-828122<br>📞 +91-9097397821, 9771996024</div>');
+
+  // Invoice meta
+  w.push(`<div style="font-size:11px;margin-bottom:6px">Invoice#: ${escapeHtml(inv.inv)}<br/>Date: ${new Date(inv.date).toLocaleString()}<br/>Customer: ${escapeHtml(inv.customer||'-')}</div>`);
+
+  w.push('<hr style="border:none;border-top:1px dashed #444;margin:6px 0">');
+
+  // Table header - 5 columns: Sr, Item, Qty, Rate, Price
+  w.push('<table style="width:100%;font-size:12px;border-collapse:collapse;">');
+  w.push('<thead>');
+  w.push('<tr>');
+  w.push('<th style="text-align:left;width:6%;padding:4px 0">S.No</th>');
+  w.push('<th style="text-align:left;width:52%;padding:4px 0">Item</th>');
+  w.push('<th style="text-align:center;width:12%;padding:4px 0">Qty</th>');
+  w.push('<th style="text-align:right;width:15%;padding:4px 0">Rate</th>');
+  w.push('<th style="text-align:right;width:15%;padding:4px 0">Price</th>');
+  w.push('</tr>');
+  w.push('</thead>');
+  w.push('<tbody>');
+
+  let subtotal = 0;
+  (inv.items || []).forEach((it, idx) => {
+    const qty = Number(it.qty) || 0;
+    const rate = Number(it.rate) || 0;
+    const lineTotal = +(qty * rate).toFixed(2);
+    subtotal = +(subtotal + lineTotal).toFixed(2);
+
+    // shorten item name to fit
+    let name = it.name || '';
+    const maxNameLen = RECEIPT_WIDTH_MM <= 58 ? 14 : 22; // shorter for 58mm
+    if(name.length > maxNameLen) name = name.slice(0, maxNameLen - 3) + '...';
+
+    w.push('<tr>');
+    w.push(`<td style="padding:2px 0;vertical-align:top">${idx+1}</td>`);
+    w.push(`<td style="padding:2px 4px;vertical-align:top">${escapeHtml(name)}${it.unit ? ' ' + escapeHtml(it.unit) : ''}</td>`);
+    w.push(`<td style="padding:2px 0;vertical-align:top;text-align:center">${qty}</td>`);
+    w.push(`<td style="padding:2px 0;vertical-align:top;text-align:right">₹${rate.toFixed(2)}</td>`);
+    w.push(`<td style="padding:2px 0;vertical-align:top;text-align:right">₹${lineTotal.toFixed(2)}</td>`);
+    w.push('</tr>');
   });
-  w.push('</tbody></table>');
-  w.push('<hr/>');
-  w.push(`<div style="display:flex;justify-content:space-between;font-size:12px"><div>Subtotal</div><div>₹${Number(inv.subtotal).toFixed(2)}</div></div>`);
-  w.push(`<div style="display:flex;justify-content:space-between;font-size:12px"><div>Discount</div><div>₹${Number(inv.discount).toFixed(2)}</div></div>`);
-  w.push(`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:13px"><div>Total</div><div>₹${Number(inv.total).toFixed(2)}</div></div>`);
-  w.push('<div style="margin-top:8px;text-align:center;font-size:12px">Thanks for shopping at Puspanjali Stores</div>');
+
+  w.push('</tbody>');
+  w.push('</table>');
+
+  w.push('<hr style="border:none;border-top:1px dashed #444;margin:6px 0">');
+
+  // Subtotal / Discount / Grand total
+  const discount = Number(inv.discount) || 0;
+  const grand = +(subtotal - discount).toFixed(2);
+
+  // Subtotal
+  w.push('<div style="font-size:12px;margin-top:4px">');
+  w.push(`<div style="display:flex;justify-content:space-between;margin-bottom:3px"><div>Subtotal</div><div>₹${subtotal.toFixed(2)}</div></div>`);
+
+  // Discount (show only if >0)
+  if(discount && discount !== 0){
+    w.push(`<div style="display:flex;justify-content:space-between;margin-bottom:3px"><div>Discount</div><div>- ₹${Number(discount).toFixed(2)}</div></div>`);
+  }
+
+  // Grand total (bold)
+  w.push(`<div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:700;font-size:14px"><div>Grand Total</div><div>₹${grand.toFixed(2)}</div></div>`);
   w.push('</div>');
+
+  w.push('<div style="margin-top:8px;text-align:center;font-size:11px">Thank you for shopping at Puspanjali Stores</div>');
+
+  w.push('</div>'); // end printArea
   return w.join('');
 }
+
 function printInvoiceOnly(inv){
   const html = buildReceiptHtml(inv);
   const win = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
+  if(!win){
+    alert('Unable to open print window (popup blocked). Try printing from browser with popups allowed.');
+    return;
+  }
   win.document.open();
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Receipt</title>');
-  win.document.write(`<style>@page{size:${RECEIPT_WIDTH_MM}mm auto;margin:0}body{margin:0;padding:0;background:#fff}</style>`);
+  win.document.write(`<style>
+    @page{size:${RECEIPT_WIDTH_MM}mm auto;margin:0}
+    body{margin:0;padding:6px;background:#fff;font-family:monospace,'Courier New',sans-serif}
+    table{width:100%;border-collapse:collapse}
+    td,th{border:none}
+  </style>`);
   win.document.write('</head><body>');
   win.document.write(html);
   win.document.write('</body></html>');
   win.document.close();
-  setTimeout(()=>{ win.focus(); win.print(); }, 300);
+
+  setTimeout(()=>{
+    try{
+      win.focus();
+      win.print();
+    }catch(e){
+      console.warn('Print failed', e);
+      alert('Print failed: ' + (e && e.message ? e.message : e));
+    }
+  }, 300);
 }
 
 /* ---------- Init ---------- */
@@ -597,8 +783,8 @@ function printInvoiceOnly(inv){
   if(!Array.isArray(sales)) sales = [];
   if(products.length === 0){
     products = [
-      { id: uid(), name: 'Incense Sticks (Pkt)', price: 20, stock: 120, unit: 'Pieces' },
-      { id: uid(), name: 'Diya (Large)', price: 15, stock: 60, unit: 'Pieces' }
+      { id: uid(), name: 'Incense Sticks (Pkt)', price: 20, stock: 120, unit: 'Pieces', updated_at: new Date().toISOString() },
+      { id: uid(), name: 'Diya (Large)', price: 15, stock: 60, unit: 'Pieces', updated_at: new Date().toISOString() }
     ];
     save(KEY_PRODUCTS, products);
   }
@@ -608,4 +794,3 @@ lockApp();
 </script>
 </body>
 </html>
-
