@@ -140,7 +140,8 @@
         </div>
 
         <label style="margin-top:8px">Select product from results</label>
-        <select id="selectProduct"><option value="">-- Select product --</option></select>
+        <select id="selectProduct" style="display:none"><option value="">-- Select product --</option></select>
+
 
         <div style="display:flex;gap:8px;margin-top:8px">
           <input id="qty" type="number" placeholder="Qty" min="1" />
@@ -376,25 +377,21 @@ productTableBody.addEventListener('click', e=>{
 searchProduct.addEventListener('input', e=> renderProducts(e.target.value));
 
 /* ---------- View Stocks toggle ---------- */
-if(viewStocksBtn && productTableFull){
-  // initialize hidden; CSS prevents flash
+// inside your existing viewStocksBtn click handler
+const selectProductEl = document.getElementById('selectProduct');
+if(isHidden){
+  productTableFull.style.display = '';
+  productTableFull.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if(selectProductEl) selectProductEl.style.display = ''; // show select
+  viewStocksBtn.textContent = 'Hide Stocks';
+  viewStocksBtn.setAttribute('aria-pressed','true');
+} else {
   productTableFull.style.display = 'none';
-  viewStocksBtn.setAttribute('aria-pressed','false');
+  if(selectProductEl) selectProductEl.style.display = 'none'; // hide select
   viewStocksBtn.textContent = 'View Stocks';
-
-  viewStocksBtn.addEventListener('click', () => {
-    const isHidden = (getComputedStyle(productTableFull).display === 'none');
-    if(isHidden){
-      productTableFull.style.display = '';
-      viewStocksBtn.textContent = 'Hide Stocks';
-      viewStocksBtn.setAttribute('aria-pressed','true');
-    } else {
-      productTableFull.style.display = 'none';
-      viewStocksBtn.textContent = 'View Stocks';
-      viewStocksBtn.setAttribute('aria-pressed','false');
-    }
-  });
+  viewStocksBtn.setAttribute('aria-pressed','false');
 }
+
 
 /* ---------- Typeahead / Self-dropdown for Billing ---------- */
 const taInput = document.getElementById('productSearchSelect');
@@ -795,10 +792,29 @@ function printInvoiceOnly(inv){
   renderProducts(''); renderSales(); renderCart();
   // keep stocks hidden on load; View Stocks button will toggle visibility
 if (productTableFull) productTableFull.style.display = 'none';
+  localStorage.setItem('ps_show_stocks', isHidden ? '1' : '0');
+  // restore stocks visibility preference
+const pref = localStorage.getItem('ps_show_stocks');
+if(pref === '1'){
+  if(productTableFull) productTableFull.style.display = '';
+  const sel = document.getElementById('selectProduct');
+  if(sel) sel.style.display = '';
+  viewStocksBtn.textContent = 'Hide Stocks';
+  viewStocksBtn.setAttribute('aria-pressed','true');
+} else {
+  if(productTableFull) productTableFull.style.display = 'none';
+  const sel = document.getElementById('selectProduct');
+  if(sel) sel.style.display = 'none';
+  viewStocksBtn.textContent = 'View Stocks';
+  viewStocksBtn.setAttribute('aria-pressed','false');
+}
+
+
 
 })();
 lockApp();
 </script>
 </body>
 </html>
+
 
