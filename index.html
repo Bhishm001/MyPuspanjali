@@ -291,9 +291,19 @@ function renderCart(){
 
 function renderSales(){
   salesTbl.innerHTML = '';
-  sales.slice().reverse().forEach(s=>{
+  // show newest first
+  sales.slice().reverse().forEach(s => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(s.inv)}</td><td>${new Date(s.date).toLocaleString()}</td><td>${escapeHtml(s.customer||'')}</td><td>₹${Number(s.total).toFixed(2)}</td><td><button data-id="${s.id}" class="small view">View</button></td>`;
+    tr.innerHTML = `
+      <td>${escapeHtml(s.inv)}</td>
+      <td>${new Date(s.date).toLocaleString()}</td>
+      <td>${escapeHtml(s.customer||'')}</td>
+      <td>₹${Number(s.total).toFixed(2)}</td>
+      <td>
+        <button data-id="${s.id}" class="small view">View</button>
+        <button data-id="${s.id}" class="small reprint">Reprint</button>
+      </td>
+    `;
     salesTbl.appendChild(tr);
   });
 }
@@ -381,15 +391,36 @@ saveInvoiceBtn.addEventListener('click', ()=>{
 });
 
 /* ---------- View sale ---------- */
-salesTbl.addEventListener('click', e=>{
+salesTbl.addEventListener('click', e => {
+  // View details (existing)
   if(e.target.classList.contains('view')){
-    const id = e.target.dataset.id; const s = sales.find(x=>x.id===id);
+    const id = e.target.dataset.id;
+    const s = sales.find(x => x.id === id);
     if(!s) return;
     let lines = '';
-    (s.items||[]).forEach(it=>{ lines += `${it.name}${it.unit?(' ('+it.unit+')'):''} x ${it.qty} @ ${it.rate} = ${(it.qty*it.rate).toFixed(2)}\n`; });
+    (s.items||[]).forEach(it => {
+      lines += `${it.name}${it.unit?(' ('+it.unit+')'):''} x ${it.qty} @ ${it.rate} = ${(it.qty*it.rate).toFixed(2)}\n`;
+    });
     alert(`Invoice: ${s.inv}\nDate: ${new Date(s.date).toLocaleString()}\nCustomer: ${s.customer||'-'}\n\nItems:\n${lines}\n\nTotal: ₹${Number(s.total).toFixed(2)}`);
   }
+
+  // Reprint (new)
+  if(e.target.classList.contains('reprint')){
+    const id = e.target.dataset.id;
+    const s = sales.find(x => x.id === id);
+    if(!s) return alert('Invoice not found for reprint.');
+    try {
+      // Use the existing print function you already have
+      printInvoiceOnly(s);
+      // Optional: give user feedback
+      // alert('Reprint sent to print dialog.');
+    } catch(err){
+      console.error('Reprint failed', err);
+      alert('Reprint failed: ' + (err && err.message ? err.message : err));
+    }
+  }
 });
+
 
 /* ---------- Export/Import helpers ---------- */
 function computeSummary(){
@@ -577,3 +608,4 @@ lockApp();
 </script>
 </body>
 </html>
+
