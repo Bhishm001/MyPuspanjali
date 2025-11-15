@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Puspanjali Stores — POS (Updated Receipt)</title>
+<title>Puspanjali Stores — POS (58mm) — v2</title>
 <style>
-  :root{--bg:#f5f7fb;--card:#fff;--muted:#666}
+  :root{--bg:#f5f7fb;--card:#fff;--muted:#666;--accent:#2563eb}
   *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}
   body{margin:0;background:var(--bg);color:#111}
-  .container{padding:16px}
+  .container{padding:16px;max-width:1100px;margin:0 auto}
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
   h1{margin:0;font-size:20px}
   .muted{color:var(--muted);font-size:13px}
@@ -22,7 +22,7 @@
   .small{padding:6px;font-size:13px}
   .right{text-align:right}
   footer{margin-top:12px;color:#666;font-size:13px}
-  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
   /* Login overlay */
   .overlay{position:fixed;inset:0;background:linear-gradient(180deg,rgba(10,20,40,0.45),rgba(10,20,40,0.6));display:flex;align-items:center;justify-content:center;z-index:9999}
   .login-box{width:360px;background:var(--card);padding:20px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.25);text-align:center}
@@ -31,8 +31,9 @@
   .error{color:#b00020;margin-top:8px;font-size:13px}
   .logoutBtn{padding:6px 10px;border-radius:6px;border:1px solid #dcdfe6;background:white;cursor:pointer}
 
-  /* Hide product table initially to avoid flash */
+  /* Hide product table and product select by default to avoid flash */
   #productTable { display: none; }
+  #selectProduct { display: none; }
 
   /* Typeahead dropdown (positioned under the input) */
   .typeahead-wrap { position:relative; }
@@ -55,8 +56,10 @@
   .typeahead-meta { font-size:12px; color:#666; }
   .typeahead-right { text-align:right; min-width:90px; font-weight:600; }
 
-  /* small print tweaks to make invoices readable on screen */
-  .no-print { display:none; } /* used for elements we don't want printed if needed */
+  /* small helper for print only */
+  @media print {
+    .no-print { display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -65,14 +68,13 @@
 <div id="loginOverlay" class="overlay" aria-hidden="false">
   <div class="login-box" role="dialog" aria-label="POS login">
     <h2>Puspanjali Stores — Login</h2>
-    <p class="muted">Enter credentials to access POS</p>
+    <p class="muted">Enter credentials to access the POS</p>
     <label>Username</label>
     <input id="loginUser" placeholder="Username" autocomplete="username" />
     <label>Password</label>
     <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
     <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
       <button id="loginBtn">Sign in</button>
-      <button id="demoBtn" class="small">Demo</button>
     </div>
     <div id="loginError" class="error" style="display:none"></div>
     <div style="margin-top:10px;font-size:11px;color:#999;">Authorized access only</div>
@@ -86,13 +88,10 @@
       <h1>Puspanjali Stores — POS</h1>
       <div class="muted">NAC MARKET SHOP NO 147, Saharpura Sindri, DHANBAD-828122 (Jharkhand)<br>📞 +91-9097397821, 9771996024</div>
     </div>
-    <div class="actions">
+    <div class="actions no-print">
       <button id="exportCsvTop" class="small">Export Sales CSV</button>
       <button id="exportJsonTop" class="small">Download JSON</button>
-
-      <!-- View Stocks toggle -->
       <button id="viewStocksBtn" class="small" aria-pressed="false">View Stocks</button>
-
       <button id="logout" class="logoutBtn">Logout</button>
     </div>
   </header>
@@ -103,6 +102,8 @@
         <h3>Products / Stock</h3>
         <label>Product name</label>
         <input id="pName" placeholder="Rice / Diya / Incense" />
+        <label>SKU (optional, recommended)</label>
+        <input id="pSku" placeholder="SKU e.g. GANG-12" />
         <label>Price (₹)</label>
         <input id="pPrice" type="number" step="0.01" />
         <label>Stock quantity</label>
@@ -122,26 +123,22 @@
 
         <label style="margin-top:12px">Search products (filters table)</label>
         <input id="searchProduct" placeholder="search..." />
-        <!-- Replace this -->
-<!-- <table id="productTable"><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody></tbody></table> -->
-
-<!-- With this -->
-<table id="productTable" style="display:none"><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody></tbody></table>
-
+        <!-- product table hidden inline by default -->
+        <table id="productTable" style="display:none"><thead><tr><th>Product</th><th>SKU</th><th>Price</th><th>Stock</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
 
       <div class="card" style="margin-top:12px">
         <h3>Create Sale</h3>
-        <label>Find product</label>
 
-        <!-- Typeahead wrapper: input + dropdown -->
+        <label>Find product</label>
         <div class="typeahead-wrap">
           <input id="productSearchSelect" placeholder="Type to search products (live)" autocomplete="off" />
           <div id="productDropdown" class="typeahead-dropdown" style="display:none"></div>
         </div>
 
         <label style="margin-top:8px">Select product from results</label>
+        <!-- the select hidden by default; will be shown with View Stocks -->
         <select id="selectProduct" style="display:none"><option value="">-- Select product --</option></select>
-
 
         <div style="display:flex;gap:8px;margin-top:8px">
           <input id="qty" type="number" placeholder="Qty" min="1" />
@@ -175,8 +172,8 @@
       <div class="card">
         <h3>Backup & Restore</h3>
         <div class="actions" style="margin-bottom:8px">
-          <button id="exportJson" class="small">Export ALL (JSON with summary, stockStatus & invoicesSummary)</button>
-          <button id="exportCsv" class="small">Export Sales CSV (+ invoices & stock & summary)</button>
+          <button id="exportJson" class="small">Export ALL (JSON)</button>
+          <button id="exportCsv" class="small">Export Sales CSV</button>
         </div>
 
         <label>Import JSON file (backup)</label>
@@ -189,6 +186,36 @@
         <div style="display:flex;gap:8px;margin-top:8px">
           <button id="importBtn">Import JSON</button>
           <button id="clearAll" class="small">Clear All Local Data</button>
+        </div>
+
+        <hr style="margin:12px 0" />
+        <div style="margin-top:6px">
+          <strong>Import CSV (update stocks)</strong>
+          <div style="margin-top:8px">
+            <input id="importCsvFile" type="file" accept=".csv,text/csv" />
+            <select id="importCsvMode" style="margin-top:6px">
+              <option value="update-only">Update existing only (match id or sku)</option>
+              <option value="create-missing">Update + create missing products</option>
+            </select>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="importCsvBtn" class="small">Import CSV</button>
+            </div>
+          </div>
+        </div>
+
+        <hr style="margin:12px 0" />
+        <div style="margin-top:6px">
+          <strong>Import JSON — update stocks only</strong>
+          <div style="margin-top:8px">
+            <input id="importJsonStocksFile" type="file" accept=".json" />
+            <select id="importJsonStocksMode" style="margin-top:6px">
+              <option value="overwrite">Overwrite stock (set)</option>
+              <option value="increment">Increment stock (add)</option>
+            </select>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="importJsonStocksBtn" class="small">Import JSON (Stocks)</button>
+            </div>
+          </div>
         </div>
 
         <hr style="margin:12px 0" />
@@ -219,24 +246,22 @@
 /* ---------- CONFIG ---------- */
 const LOGIN_USER = 'Puspanjali';
 const LOGIN_PASS = 'Welcome1';
-const KEY_PRODUCTS = 'pos_products_v1';
-const KEY_SALES = 'pos_sales_v1';
-let RECEIPT_WIDTH_MM = 80; // change to 58 if your printer is 58mm
+const KEY_PRODUCTS = 'pos_products_v2';
+const KEY_SALES = 'pos_sales_v2';
+let RECEIPT_WIDTH_MM = 58; // 58mm receipt
 
 /* ---------- ELEMENTS ---------- */
 const loginOverlay = document.getElementById('loginOverlay');
 const loginBtn = document.getElementById('loginBtn');
-const demoBtn = document.getElementById('demoBtn');
 const loginError = document.getElementById('loginError');
 const loginUser = document.getElementById('loginUser');
 const loginPass = document.getElementById('loginPass');
 
 const appEl = document.getElementById('app');
 const logoutBtn = document.getElementById('logout');
-const exportCsvTop = document.getElementById('exportCsvTop');
-const exportJsonTop = document.getElementById('exportJsonTop');
 
 const pName = document.getElementById('pName');
+const pSku = document.getElementById('pSku');
 const pPrice = document.getElementById('pPrice');
 const pStock = document.getElementById('pStock');
 const pUnit = document.getElementById('pUnit');
@@ -270,9 +295,16 @@ const clearAllBtn = document.getElementById('clearAll');
 const downloadDataJson = document.getElementById('downloadDataJson');
 const downloadDataCsv = document.getElementById('downloadDataCsv');
 
+const importCsvFile = document.getElementById('importCsvFile');
+const importCsvBtn = document.getElementById('importCsvBtn');
+const importCsvMode = document.getElementById('importCsvMode');
+
+const importJsonStocksFile = document.getElementById('importJsonStocksFile');
+const importJsonStocksBtn = document.getElementById('importJsonStocksBtn');
+const importJsonStocksMode = document.getElementById('importJsonStocksMode');
+
 const viewStocksBtn = document.getElementById('viewStocksBtn');
 
-/* ---------- State ---------- */
 let products = [];
 let sales = [];
 let cart = [];
@@ -281,13 +313,11 @@ let editProductId = null;
 /* ---------- Helpers ---------- */
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function save(key, data){ localStorage.setItem(key, JSON.stringify(data)); }
-function load(key){ try{ return JSON.parse(localStorage.getItem(key) || 'null'); }catch(e){return null;} }
+function load(key){ try{ return JSON.parse(localStorage.getItem(key) || 'null');}catch(e){return null;} }
 function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function formatCurrency(n){ return '₹ ' + Number(n||0).toFixed(2); }
-function clamp(n,min,max){return Math.max(min,Math.min(max,n)); }
-
-/* Debounce helper (safe fallback) */
-function debounce(fn, delay=200){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), delay); }; }
+function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+function debounce(fn,delay=200){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), delay); }; }
 
 /* ---------- Login ---------- */
 function showApp(){ loginOverlay.style.display='none'; appEl.style.display='block'; loginOverlay.setAttribute('aria-hidden','true'); initApp(); }
@@ -299,17 +329,19 @@ loginBtn.addEventListener('click', ()=> {
   if(u === LOGIN_USER && p === LOGIN_PASS){ loginError.style.display='none'; showApp(); }
   else { loginError.style.display='block'; loginError.textContent = 'Invalid credentials. Try again.'; }
 });
-demoBtn.addEventListener('click', ()=>{ loginUser.value = LOGIN_USER; loginPass.value = LOGIN_PASS; loginBtn.click(); });
 logoutBtn.addEventListener('click', ()=>{ if(confirm('Logout and lock POS?')) lockApp(); });
 
 /* ---------- Rendering ---------- */
 function renderProducts(filter=''){
+  if(!productTableBody) return;
   productTableBody.innerHTML = '';
+  if(!selectProduct) return;
   selectProduct.innerHTML = '<option value="">-- Select product --</option>';
-  const rows = products.filter(p=>p.name.toLowerCase().includes((filter||'').toLowerCase()));
+  const rows = products.filter(p=>p.name.toLowerCase().includes((filter||'').toLowerCase()) || (p.sku||'').toLowerCase().includes((filter||'').toLowerCase()));
   rows.forEach(p=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${escapeHtml(p.name)}${p.unit?'<div style="color:#666;font-size:12px">Unit: '+escapeHtml(p.unit)+'</div>':''}</td>
+                    <td>${escapeHtml(p.sku||'')}</td>
                     <td>₹${Number(p.price).toFixed(2)}</td>
                     <td>${Number(p.stock)||0}</td>
                     <td><button data-id="${p.id}" class="small edit">Edit</button> <button data-id="${p.id}" class="small del">Delete</button></td>`;
@@ -322,6 +354,7 @@ function renderProducts(filter=''){
 }
 
 function renderCart(){
+  if(!cartTbl) return;
   cartTbl.innerHTML = '';
   let subtotal = 0;
   cart.forEach((c,i)=>{
@@ -331,13 +364,14 @@ function renderCart(){
     tr.innerHTML = `<td>${escapeHtml(c.name)}${c.unit? ' ('+escapeHtml(c.unit)+')':''}</td><td>${c.qty}</td><td>₹${Number(c.rate).toFixed(2)}</td><td>₹${Number(amt).toFixed(2)}</td><td><button data-i="${i}" class="small rem">Remove</button></td>`;
     cartTbl.appendChild(tr);
   });
-  subtotalEl.textContent = '₹' + subtotal.toFixed(2);
+  if(subtotalEl) subtotalEl.textContent = '₹' + subtotal.toFixed(2);
   const disc = Number(discountEl.value) || 0;
   const grand = Math.max(0, subtotal - disc);
-  grandEl.textContent = '₹' + grand.toFixed(2);
+  if(grandEl) grandEl.textContent = '₹' + grand.toFixed(2);
 }
 
 function renderSales(){
+  if(!salesTbl) return;
   salesTbl.innerHTML = '';
   sales.slice().reverse().forEach(s=>{
     const tr = document.createElement('tr');
@@ -346,27 +380,80 @@ function renderSales(){
   });
 }
 
-/* ---------- Product CRUD ---------- */
+/* ---------- Product add with merge / lot update ---------- */
+function findProductBySkuOrName(sku, name){
+  if(sku){
+    const p = products.find(x => (x.sku || '').toString().toLowerCase() === sku.toString().toLowerCase());
+    if(p) return p;
+  }
+  if(name){
+    const p = products.find(x => x.name.toString().toLowerCase() === name.toString().toLowerCase());
+    if(p) return p;
+  }
+  return null;
+}
+
 addProductBtn.addEventListener('click', ()=>{
   const name = (pName.value||'').trim();
+  const sku = (pSku.value||'').trim();
   const price = Number(pPrice.value) || 0;
-  const stock = Number(pStock.value) || 0;
+  const stock = Math.round(Number(pStock.value) || 0);
   const unit = pUnit.value || 'Pieces';
   if(!name || price <= 0){ alert('Enter valid name and price'); return; }
+
+  // If editing existing explicitly by editProductId
   if(editProductId){
     const idx = products.findIndex(x=>x.id===editProductId);
-    if(idx >= 0){ products[idx].name = name; products[idx].price = price; products[idx].stock = stock; products[idx].unit = unit; products[idx].updated_at = new Date().toISOString(); }
-    editProductId = null; addProductBtn.textContent = 'Add / Update Product';
-  } else {
-    products.push({ id: uid(), name, price, stock, unit, updated_at: new Date().toISOString() });
+    if(idx >= 0){
+      products[idx].name = name;
+      products[idx].sku = sku;
+      products[idx].price = price;
+      products[idx].stock = stock;
+      products[idx].unit = unit;
+      products[idx].updated_at = new Date().toISOString();
+      editProductId = null; addProductBtn.textContent = 'Add / Update Product';
+      save(KEY_PRODUCTS, products); renderProducts(searchProduct.value); pName.value=''; pPrice.value=''; pStock.value=''; pUnit.value='Pieces'; pSku.value='';
+      return;
+    }
   }
-  save(KEY_PRODUCTS, products); renderProducts(searchProduct.value); pName.value=''; pPrice.value=''; pStock.value=''; pUnit.value='Pieces';
+
+  // Check for existing by SKU or exact name
+  const existing = findProductBySkuOrName(sku, name);
+
+  if(existing){
+    // Ask user whether to add stock to existing or create new entry
+    const msg = `Product with same SKU/name found:\n\n${existing.name} (SKU: ${existing.sku || '-'})\nPrice: ₹${Number(existing.price).toFixed(2)}  Stock: ${existing.stock}\n\nChoose OK to ADD incoming stock to existing product.\nChoose Cancel to create a NEW product entry instead.`;
+    if(confirm(msg)){
+      // add stock to existing
+      existing.stock = Math.max(0, (Number(existing.stock)||0) + stock);
+      // if price differs and user wants to update, ask
+      if(Number(existing.price) !== Number(price)){
+        if(confirm(`Existing price ₹${Number(existing.price).toFixed(2)} differs from entered ₹${Number(price).toFixed(2)}. Update price to new value?`)){
+          existing.price = price;
+        }
+      }
+      existing.updated_at = new Date().toISOString();
+      save(KEY_PRODUCTS, products); renderProducts(searchProduct.value);
+      // clear form
+      pName.value=''; pPrice.value=''; pStock.value=''; pUnit.value='Pieces'; pSku.value='';
+      alert('Stock added to existing product.');
+      return;
+    }
+    // else continue to create new product below
+  }
+
+  // create new product
+  const newP = { id: uid(), sku: sku || '', name, price, stock, unit, updated_at: new Date().toISOString() };
+  products.push(newP);
+  save(KEY_PRODUCTS, products); renderProducts(searchProduct.value);
+  pName.value=''; pPrice.value=''; pStock.value=''; pUnit.value='Pieces'; pSku.value='';
 });
 
+/* ---------- product edit/delete handlers ---------- */
 productTableBody.addEventListener('click', e=>{
   if(e.target.classList.contains('edit')){
     const id = e.target.dataset.id; const p = products.find(x=>x.id===id);
-    if(p){ pName.value=p.name; pPrice.value=p.price; pStock.value=p.stock; pUnit.value=p.unit||'Pieces'; editProductId = id; addProductBtn.textContent='Save Changes'; }
+    if(p){ pName.value=p.name; pPrice.value=p.price; pStock.value=p.stock; pUnit.value=p.unit||'Pieces'; pSku.value = p.sku||''; editProductId = id; addProductBtn.textContent='Save Changes'; }
   }
   if(e.target.classList.contains('del')){
     if(!confirm('Delete product?')) return;
@@ -377,29 +464,37 @@ productTableBody.addEventListener('click', e=>{
 searchProduct.addEventListener('input', e=> renderProducts(e.target.value));
 
 /* ---------- View Stocks toggle ---------- */
-// inside your existing viewStocksBtn click handler
-const selectProductEl = document.getElementById('selectProduct');
-if(isHidden){
-  productTableFull.style.display = '';
-  productTableFull.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  if(selectProductEl) selectProductEl.style.display = ''; // show select
-  viewStocksBtn.textContent = 'Hide Stocks';
-  viewStocksBtn.setAttribute('aria-pressed','true');
-} else {
-  productTableFull.style.display = 'none';
-  if(selectProductEl) selectProductEl.style.display = 'none'; // hide select
-  viewStocksBtn.textContent = 'View Stocks';
+if(viewStocksBtn){
   viewStocksBtn.setAttribute('aria-pressed','false');
+  viewStocksBtn.textContent = 'View Stocks';
+  viewStocksBtn.addEventListener('click', () => {
+    const isHidden = (getComputedStyle(productTableFull).display === 'none');
+    const selectEl = selectProduct;
+    if(isHidden){
+      productTableFull.style.display = '';
+      if(selectEl) selectEl.style.display = '';
+      viewStocksBtn.textContent = 'Hide Stocks';
+      viewStocksBtn.setAttribute('aria-pressed','true');
+      try{ productTableFull.scrollIntoView({ behavior: 'smooth', block: 'center' }); }catch(e){}
+      localStorage.setItem('ps_show_stocks', '1');
+    } else {
+      productTableFull.style.display = 'none';
+      if(selectEl) selectEl.style.display = 'none';
+      viewStocksBtn.textContent = 'View Stocks';
+      viewStocksBtn.setAttribute('aria-pressed','false');
+      localStorage.setItem('ps_show_stocks', '0');
+    }
+  });
 }
 
-
-/* ---------- Typeahead / Self-dropdown for Billing ---------- */
-const taInput = document.getElementById('productSearchSelect');
-const taDropdown = document.getElementById('productDropdown');
+/* ---------- Typeahead / dropdown for billing ---------- */
+const taInput = productSearchSelect;
+const taDropdown = productDropdown;
 let taResults = [];
 let taActiveIndex = -1;
 
 function taRender() {
+  if(!taDropdown) return;
   if(!taResults || taResults.length === 0) { taDropdown.style.display = 'none'; taActiveIndex = -1; return; }
   const html = taResults.map((p, i) => {
     return `<div class="typeahead-item" data-idx="${i}">
@@ -423,7 +518,6 @@ function taSetActive(n) {
 function taSelectIndex(n) {
   const p = taResults[n];
   if(!p) return;
-  // ensure option exists in selectProduct
   if(selectProduct) {
     let opt = selectProduct.querySelector(`option[value="${p.id}"]`);
     if(!opt) {
@@ -443,17 +537,12 @@ function taSelectIndex(n) {
 function taSearch(q) {
   const s = (q||'').trim().toLowerCase();
   if(!s) { taResults = []; taRender(); return; }
-  taResults = products.filter(p => (p.name && p.name.toLowerCase().includes(s)) || (p.sku && p.sku.toLowerCase().includes(s))).slice(0,12);
+  taResults = products.filter(p => (p.name && p.name.toLowerCase().includes(s)) || (p.sku && p.sku.toLowerCase().includes(s))).slice(0,16);
   taRender();
 }
 
-const _debounce = debounce;
-
 if(taInput){
-  taInput.addEventListener('input', _debounce((e)=>{
-    taSearch(e.target.value);
-  }, 160));
-
+  taInput.addEventListener('input', debounce((e)=>{ taSearch(e.target.value); }, 120));
   taInput.addEventListener('keydown', (ev)=>{
     if(taDropdown.style.display === 'none') return;
     if(ev.key === 'ArrowDown'){ ev.preventDefault(); taSetActive(Math.min(taActiveIndex + 1, taResults.length - 1)); }
@@ -521,9 +610,8 @@ saveInvoiceBtn.addEventListener('click', ()=>{
   try{ printInvoiceOnly(invoice); } catch(e){ alert('Saved. Print failed: '+e.message); }
 });
 
-/* ---------- View sale & Reprint ---------- */
+/* ---------- View / Reprint ---------- */
 salesTbl.addEventListener('click', e=>{
-  // View details
   if(e.target.classList.contains('view')){
     const id = e.target.dataset.id;
     const s = sales.find(x=>x.id === id);
@@ -533,21 +621,15 @@ salesTbl.addEventListener('click', e=>{
     alert(`Invoice: ${s.inv}\nDate: ${new Date(s.date).toLocaleString()}\nCustomer: ${s.customer||'-'}\n\nItems:\n${lines}\n\nTotal: ₹${Number(s.total).toFixed(2)}`);
   }
 
-  // Reprint (calls existing print function)
   if(e.target.classList.contains('reprint')){
     const id = e.target.dataset.id;
     const s = sales.find(x=>x.id === id);
     if(!s) return alert('Invoice not found for reprint.');
-    try {
-      printInvoiceOnly(s);
-    } catch(err){
-      console.error('Reprint failed', err);
-      alert('Reprint failed: ' + (err && err.message ? err.message : err));
-    }
+    try { printInvoiceOnly(s); } catch(err){ console.error('Reprint failed', err); alert('Reprint failed: ' + (err && err.message ? err.message : err)); }
   }
 });
 
-/* ---------- Export/Import helpers ---------- */
+/* ---------- Exports / Reports ---------- */
 function computeSummary(){
   const totalSalesAmount = sales.reduce((s,x)=>s + (Number(x.total)||0), 0);
   const totalSalesCount = sales.length;
@@ -555,22 +637,22 @@ function computeSummary(){
   const totalStockValue = products.reduce((s,p)=>s + ((Number(p.stock)||0) * (Number(p.price)||0)), 0);
   return { totalSalesAmount, totalSalesCount, totalStockQuantity, totalStockValue };
 }
-function buildStockStatus(){ return products.map(p=>({ id:p.id, name:p.name, unit:p.unit||'', quantity:Number(p.stock)||0, unitPrice:Number(p.price)||0, stockValue: ((Number(p.stock)||0)*(Number(p.price)||0)) })); }
+function buildStockStatus(){ return products.map(p=>({ id:p.id, sku:p.sku||'', name:p.name, unit:p.unit||'', quantity:Number(p.stock)||0, unitPrice:Number(p.price)||0, stockValue: ((Number(p.stock)||0)*(Number(p.price)||0)) })); }
 function buildInvoicesSummary(){ return sales.map(s=>({ id:s.id, inv:s.inv, date:new Date(s.date).toISOString(), total:Number(s.total)||0, itemsCount: (s.items || []).length })); }
 function download(filename, content, type='application/json'){ const blob = new Blob([content], {type}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 150); }
 
-/* ---------- Export JSON (with extra arrays) ---------- */
+/* Export JSON */
 exportJsonBtn.addEventListener('click', ()=>{
   const summary = computeSummary();
   const stockStatus = buildStockStatus();
   const invoicesSummary = buildInvoicesSummary();
   const data = { products, sales, summary, stockStatus, invoicesSummary, exportedAt: new Date().toISOString() };
-  download('pos_backup_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.json', JSON.stringify(data,null,2), 'application/json');
+  download('pos_full_export_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.json', JSON.stringify(data,null,2), 'application/json');
 });
 downloadDataJson.addEventListener('click', ()=> exportJsonBtn.click());
 exportJsonTop.addEventListener('click', ()=> exportJsonBtn.click());
 
-/* ---------- Export CSVs ---------- */
+/* Export CSVs (sales, invoices, stock, summary) */
 exportCsvBtn.addEventListener('click', ()=>{
   if(!sales.length){ alert('No sales to export'); return; }
   let csv = 'Invoice,Date,Customer,Item,Qty,Unit,Rate,Amount\n';
@@ -587,8 +669,8 @@ exportCsvBtn.addEventListener('click', ()=>{
   download('pos_invoices_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', invcsv, 'text/csv');
 
   const stocks = buildStockStatus();
-  let scsv = 'Product,Unit,Quantity,UnitPrice,StockValue\n';
-  stocks.forEach(s=>{ scsv += `"${s.name.replace(/"/g,'""')}",${s.unit},${s.quantity},${s.unitPrice},${s.stockValue.toFixed(2)}\n`; });
+  let scsv = 'ProductID,SKU,Product,Unit,Quantity,UnitPrice,StockValue\n';
+  stocks.forEach(s=>{ scsv += `"${s.id}","${(s.sku||'').replace(/"/g,'""')}","${s.name.replace(/"/g,'""')}",${s.unit},${s.quantity},${s.unitPrice},${s.stockValue.toFixed(2)}\n`; });
   download('pos_stock_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.csv', scsv, 'text/csv');
 
   const s = computeSummary();
@@ -602,7 +684,7 @@ exportCsvBtn.addEventListener('click', ()=>{
 downloadDataCsv.addEventListener('click', ()=> exportCsvBtn.click());
 exportCsvTop.addEventListener('click', ()=> exportCsvBtn.click());
 
-/* ---------- Import JSON ---------- */
+/* ---------- Import JSON (full) ---------- */
 importBtn.addEventListener('click', ()=>{
   const f = importFile.files[0];
   if(!f){ alert('Choose a JSON file first'); return; }
@@ -617,6 +699,7 @@ importBtn.addEventListener('click', ()=>{
       if(mode === 'replace'){
         products = Array.isArray(obj.products) ? obj.products.map(p=>({
           id: p.id || uid(),
+          sku: p.sku || p.SKU || '',
           name: p.name || '',
           price: Number(p.price) || 0,
           stock: Number(typeof p.stock !== 'undefined' ? p.stock : 0),
@@ -638,7 +721,7 @@ importBtn.addEventListener('click', ()=>{
         const existingProductsById = new Map(products.map(p=>[p.id,p]));
         (obj.products||[]).forEach(p=>{
           const id = p.id || uid();
-          existingProductsById.set(id, { id, name: p.name||'', price: Number(p.price)||0, stock: Number(typeof p.stock !== 'undefined' ? p.stock : 0), unit: p.unit||'Pieces', updated_at: p.updated_at || new Date().toISOString() });
+          existingProductsById.set(id, { id, sku: p.sku||'', name: p.name||'', price: Number(p.price)||0, stock: Number(typeof p.stock !== 'undefined' ? p.stock : 0), unit: p.unit||'Pieces', updated_at: p.updated_at || new Date().toISOString() });
         });
         products = Array.from(existingProductsById.values());
         const existingSalesById = new Map(sales.map(s=>[s.id,s]));
@@ -667,47 +750,211 @@ clearAllBtn.addEventListener('click', ()=>{
   renderProducts(''); renderSales(); alert('All cleared.');
 });
 
-/* ---------- New: formatted receipt builder & print ---------- */
-function buildReceiptHtml(inv){
-  // inv: invoice object with items array [{ name, qty, rate, unit }]
-  const w = [];
-  const width = RECEIPT_WIDTH_MM; // mm
-  w.push(`<div id="printArea" style="width:${width}mm;padding:6px;font-family:monospace,'Courier New',sans-serif;font-size:12px">`);
+/* ---------- CSV Import (update stocks) ---------- */
+/* Simple CSV parser that handles quoted fields */
+function parseCSV(text){
+  const rows = [];
+  let cur = '', inQuotes = false, row = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"' ) {
+      if (inQuotes && text[i+1] === '"') { cur += '"'; i++; } else { inQuotes = !inQuotes; }
+    } else if (ch === ',' && !inQuotes) {
+      row.push(cur); cur = '';
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i+1] === '\n') continue;
+      row.push(cur); cur = '';
+      if(row.length === 1 && row[0] === '') { row = []; continue; }
+      rows.push(row); row = [];
+    } else { cur += ch; }
+  }
+  if(cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+function normalizeHeader(h){ return (h||'').toString().trim().toLowerCase().replace(/\s+/g,'_'); }
+function findProductByIdOrSku(id, sku){
+  if(id){
+    const p = products.find(x=>x.id === id);
+    if(p) return p;
+  }
+  if(sku){
+    const p = products.find(x=> (x.sku || '').toString().toLowerCase() === sku.toString().toLowerCase());
+    if(p) return p;
+  }
+  return null;
+}
 
-  // Store header
+importCsvBtn.addEventListener('click', ()=>{
+  const f = importCsvFile.files && importCsvFile.files[0];
+  if(!f){ alert('Choose a CSV file first'); return; }
+  if(!confirm('Importing CSV will update product stocks. A backup JSON will be created automatically. Continue?')) return;
+
+  // auto-backup
+  try{
+    const backupData = { products: products.slice(), sales: sales.slice(), exported_at: new Date().toISOString() };
+    const bname = 'auto_backup_before_csv_import_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.json';
+    const blob = new Blob([JSON.stringify(backupData,null,2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = bname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+  }catch(e){ console.warn('Auto backup failed', e); }
+
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const rows = parseCSV(ev.target.result);
+      if(!rows || rows.length < 1) return alert('CSV looks empty or invalid.');
+      const heads = rows[0].map(normalizeHeader);
+      const idx_by = {
+        id: heads.indexOf('id'),
+        sku: heads.indexOf('sku'),
+        stock: heads.indexOf('stock'),
+        price: heads.indexOf('price'),
+        name: heads.indexOf('name')
+      };
+      if(idx_by.stock === -1){ return alert('CSV must include a "stock" column (header name: stock). Optionally include id or sku to match products.'); }
+      const mode = importCsvMode ? importCsvMode.value : 'update-only';
+      let updated = 0, created = 0, notMatched = 0;
+      for(let r = 1; r < rows.length; r++){
+        const row = rows[r];
+        if(!row || row.length === 0) continue;
+        const rawId = (idx_by.id >=0 ? (row[idx_by.id]||'').toString().trim() : '');
+        const rawSku = (idx_by.sku >=0 ? (row[idx_by.sku]||'').toString().trim() : '');
+        const rawStock = (idx_by.stock >=0 ? (row[idx_by.stock]||'').toString().trim() : '');
+        const rawPrice = (idx_by.price >=0 ? (row[idx_by.price]||'').toString().trim() : '');
+        const rawName = (idx_by.name >=0 ? (row[idx_by.name]||'').toString().trim() : '');
+
+        const newStock = Number(rawStock);
+        if(Number.isNaN(newStock)) continue; // skip invalid rows
+
+        const prod = findProductByIdOrSku(rawId, rawSku);
+        if(prod){
+          // By default overwrite stock; if you prefer increment change here
+          prod.stock = Math.round(newStock);
+          if(rawPrice !== '') prod.price = Number(rawPrice) || prod.price;
+          if(rawName) prod.name = rawName;
+          prod.updated_at = new Date().toISOString();
+          updated++;
+        } else {
+          if(mode === 'create-missing'){
+            const newProd = {
+              id: rawId || uid(),
+              sku: rawSku || '',
+              name: rawName || (`Item_${rawSku || rawId || ('new_'+Date.now())}`),
+              price: Number(rawPrice) || 0,
+              stock: Math.round(newStock),
+              unit: 'Pieces',
+              updated_at: new Date().toISOString()
+            };
+            products.push(newProd); created++;
+          } else {
+            notMatched++;
+          }
+        }
+      }
+      save(KEY_PRODUCTS, products);
+      renderProducts(searchProduct.value);
+      alert(`CSV import finished.\nUpdated: ${updated}\nCreated: ${created}\nNot matched/skipped: ${notMatched}`);
+    } catch(err){
+      console.error('CSV import error', err);
+      alert('CSV import failed: ' + (err && err.message ? err.message : err));
+    }
+  };
+  reader.readAsText(f);
+});
+
+/* ---------- JSON import for stocks only (overwrite / increment) ---------- */
+function findByIdOrSkuName(id, sku, name){
+  if(id){
+    const p = products.find(x=>x.id === id);
+    if(p) return p;
+  }
+  if(sku){
+    const p = products.find(x=> (x.sku||'').toString().toLowerCase() === sku.toString().toLowerCase());
+    if(p) return p;
+  }
+  if(name){
+    const p = products.find(x=> x.name.toString().toLowerCase() === name.toString().toLowerCase());
+    if(p) return p;
+  }
+  return null;
+}
+importJsonStocksBtn.addEventListener('click', ()=>{
+  const f = importJsonStocksFile.files && importJsonStocksFile.files[0];
+  if(!f) return alert('Choose a JSON file first.');
+  if(!confirm('This will update product stocks. An automatic backup JSON will be downloaded before changes. Continue?')) return;
+
+  // auto-backup
+  try{
+    const backup = { products: products.slice(), sales: sales.slice(), exported_at: new Date().toISOString() };
+    const bname = 'auto_json_stock_backup_'+(new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'))+'.json';
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = bname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+  }catch(e){ console.warn('Backup failed', e); }
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try{
+      const obj = JSON.parse(ev.target.result);
+      const incoming = obj.products || obj.products_snapshot || obj.productsSnapshot || null;
+      if(!Array.isArray(incoming)) return alert('JSON must contain a "products" array.');
+      const mode = (importJsonStocksMode && importJsonStocksMode.value) || 'overwrite';
+      let updated = 0, notMatched = 0;
+      incoming.forEach(row => {
+        const id = row.id || row.ID || '';
+        const sku = (row.sku || row.SKU || '').toString().trim();
+        const name = (row.name || row.product || '').toString().trim();
+        const rawStock = row.stock !== undefined ? row.stock : (row.qty !== undefined ? row.qty : null);
+        if(rawStock === null) return;
+        const newStockNum = Number(rawStock);
+        if(Number.isNaN(newStockNum)) return;
+        const prod = findByIdOrSkuName(id, sku, name);
+        if(prod){
+          if(mode === 'overwrite') prod.stock = Math.round(newStockNum);
+          else if(mode === 'increment') prod.stock = Math.round((Number(prod.stock)||0) + newStockNum);
+          prod.updated_at = new Date().toISOString();
+          updated++;
+        } else {
+          notMatched++;
+        }
+      });
+      save(KEY_PRODUCTS, products);
+      renderProducts(searchProduct.value);
+      alert(`Stock import finished.\nUpdated: ${updated}\nNot matched: ${notMatched}`);
+    } catch(err){
+      console.error('JSON stock import error', err);
+      alert('JSON import failed: ' + (err && err.message ? err.message : err));
+    }
+  };
+  reader.readAsText(f);
+});
+
+/* ---------- Receipt builder & print ---------- */
+function buildReceiptHtml(inv){
+  const w = [];
+  const width = RECEIPT_WIDTH_MM;
+  w.push(`<div id="printArea" style="width:${width}mm;padding:6px;font-family:monospace,'Courier New',sans-serif;font-size:12px">`);
   w.push('<div style="text-align:center;font-weight:700;font-size:14px;margin-bottom:6px">Puspanjali Stores</div>');
   w.push('<div style="text-align:center;font-size:11px;margin-bottom:6px">NAC MARKET SHOP NO 147, Saharpura Sindri, DHANBAD-828122<br>📞 +91-9097397821, 9771996024</div>');
-
-  // Invoice meta
   w.push(`<div style="font-size:11px;margin-bottom:6px">Invoice#: ${escapeHtml(inv.inv)}<br/>Date: ${new Date(inv.date).toLocaleString()}<br/>Customer: ${escapeHtml(inv.customer||'-')}</div>`);
-
   w.push('<hr style="border:none;border-top:1px dashed #444;margin:6px 0">');
-
-  // Table header - 5 columns: Sr, Item, Qty, Rate, Price
   w.push('<table style="width:100%;font-size:12px;border-collapse:collapse;">');
-  w.push('<thead>');
-  w.push('<tr>');
+  w.push('<thead><tr>');
   w.push('<th style="text-align:left;width:6%;padding:4px 0">S.No</th>');
   w.push('<th style="text-align:left;width:52%;padding:4px 0">Item</th>');
   w.push('<th style="text-align:center;width:12%;padding:4px 0">Qty</th>');
   w.push('<th style="text-align:right;width:15%;padding:4px 0">Rate</th>');
   w.push('<th style="text-align:right;width:15%;padding:4px 0">Price</th>');
-  w.push('</tr>');
-  w.push('</thead>');
-  w.push('<tbody>');
-
+  w.push('</tr></thead><tbody>');
   let subtotal = 0;
   (inv.items || []).forEach((it, idx) => {
     const qty = Number(it.qty) || 0;
     const rate = Number(it.rate) || 0;
     const lineTotal = +(qty * rate).toFixed(2);
     subtotal = +(subtotal + lineTotal).toFixed(2);
-
-    // shorten item name to fit
     let name = it.name || '';
-    const maxNameLen = RECEIPT_WIDTH_MM <= 58 ? 14 : 22; // shorter for 58mm
+    const maxNameLen = width <= 58 ? 14 : 22;
     if(name.length > maxNameLen) name = name.slice(0, maxNameLen - 3) + '...';
-
     w.push('<tr>');
     w.push(`<td style="padding:2px 0;vertical-align:top">${idx+1}</td>`);
     w.push(`<td style="padding:2px 4px;vertical-align:top">${escapeHtml(name)}${it.unit ? ' ' + escapeHtml(it.unit) : ''}</td>`);
@@ -716,64 +963,31 @@ function buildReceiptHtml(inv){
     w.push(`<td style="padding:2px 0;vertical-align:top;text-align:right">₹${lineTotal.toFixed(2)}</td>`);
     w.push('</tr>');
   });
-
-  w.push('</tbody>');
-  w.push('</table>');
-
+  w.push('</tbody></table>');
   w.push('<hr style="border:none;border-top:1px dashed #444;margin:6px 0">');
-
-  // Subtotal / Discount / Grand total
   const discount = Number(inv.discount) || 0;
   const grand = +(subtotal - discount).toFixed(2);
-
-  // Subtotal
   w.push('<div style="font-size:12px;margin-top:4px">');
   w.push(`<div style="display:flex;justify-content:space-between;margin-bottom:3px"><div>Subtotal</div><div>₹${subtotal.toFixed(2)}</div></div>`);
-
-  // Discount (show only if >0)
-  if(discount && discount !== 0){
-    w.push(`<div style="display:flex;justify-content:space-between;margin-bottom:3px"><div>Discount</div><div>- ₹${Number(discount).toFixed(2)}</div></div>`);
-  }
-
-  // Grand total (bold)
+  if(discount && discount !== 0){ w.push(`<div style="display:flex;justify-content:space-between;margin-bottom:3px"><div>Discount</div><div>- ₹${Number(discount).toFixed(2)}</div></div>`); }
   w.push(`<div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:700;font-size:14px"><div>Grand Total</div><div>₹${grand.toFixed(2)}</div></div>`);
   w.push('</div>');
-
   w.push('<div style="margin-top:8px;text-align:center;font-size:11px">Thank you for shopping at Puspanjali Stores</div>');
-
-  w.push('</div>'); // end printArea
+  w.push('</div>');
   return w.join('');
 }
-
 function printInvoiceOnly(inv){
   const html = buildReceiptHtml(inv);
   const win = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
-  if(!win){
-    alert('Unable to open print window (popup blocked). Try printing from browser with popups allowed.');
-    return;
-  }
+  if(!win){ alert('Unable to open print window (popup blocked). Allow popups and try again.'); return; }
   win.document.open();
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Receipt</title>');
-  win.document.write(`<style>
-    @page{size:${RECEIPT_WIDTH_MM}mm auto;margin:0}
-    body{margin:0;padding:6px;background:#fff;font-family:monospace,'Courier New',sans-serif}
-    table{width:100%;border-collapse:collapse}
-    td,th{border:none}
-  </style>`);
+  win.document.write(`<style>@page{size:${RECEIPT_WIDTH_MM}mm auto;margin:0}body{margin:0;padding:6px;background:#fff;font-family:monospace,'Courier New',sans-serif}table{width:100%;border-collapse:collapse}td,th{border:none}</style>`);
   win.document.write('</head><body>');
   win.document.write(html);
   win.document.write('</body></html>');
   win.document.close();
-
-  setTimeout(()=>{
-    try{
-      win.focus();
-      win.print();
-    }catch(e){
-      console.warn('Print failed', e);
-      alert('Print failed: ' + (e && e.message ? e.message : e));
-    }
-  }, 300);
+  setTimeout(()=>{ try{ win.focus(); win.print(); }catch(e){ console.warn('Print failed', e); alert('Print failed: ' + (e && e.message ? e.message : e)); } }, 300);
 }
 
 /* ---------- Init ---------- */
@@ -784,37 +998,26 @@ function printInvoiceOnly(inv){
   if(!Array.isArray(sales)) sales = [];
   if(products.length === 0){
     products = [
-      { id: uid(), name: 'Incense Sticks (Pkt)', price: 20, stock: 120, unit: 'Pieces', updated_at: new Date().toISOString() },
-      { id: uid(), name: 'Diya (Large)', price: 15, stock: 60, unit: 'Pieces', updated_at: new Date().toISOString() }
+      { id: uid(), sku: 'GANG-12', name: 'Incense Sticks (Pkt)', price: 20, stock: 120, unit: 'Pieces', updated_at: new Date().toISOString() },
+      { id: uid(), sku: 'DIYA-L', name: 'Diya (Large)', price: 15, stock: 60, unit: 'Pieces', updated_at: new Date().toISOString() }
     ];
     save(KEY_PRODUCTS, products);
   }
   renderProducts(''); renderSales(); renderCart();
-  // keep stocks hidden on load; View Stocks button will toggle visibility
-if (productTableFull) productTableFull.style.display = 'none';
-  localStorage.setItem('ps_show_stocks', isHidden ? '1' : '0');
+
   // restore stocks visibility preference
-const pref = localStorage.getItem('ps_show_stocks');
-if(pref === '1'){
-  if(productTableFull) productTableFull.style.display = '';
-  const sel = document.getElementById('selectProduct');
-  if(sel) sel.style.display = '';
-  viewStocksBtn.textContent = 'Hide Stocks';
-  viewStocksBtn.setAttribute('aria-pressed','true');
-} else {
-  if(productTableFull) productTableFull.style.display = 'none';
-  const sel = document.getElementById('selectProduct');
-  if(sel) sel.style.display = 'none';
-  viewStocksBtn.textContent = 'View Stocks';
-  viewStocksBtn.setAttribute('aria-pressed','false');
-}
-
-
-
+  const pref = localStorage.getItem('ps_show_stocks');
+  if(pref === '1'){
+    if(productTableFull) productTableFull.style.display = '';
+    if(selectProduct) selectProduct.style.display = '';
+    if(viewStocksBtn){ viewStocksBtn.textContent = 'Hide Stocks'; viewStocksBtn.setAttribute('aria-pressed','true'); }
+  } else {
+    if(productTableFull) productTableFull.style.display = 'none';
+    if(selectProduct) selectProduct.style.display = 'none';
+    if(viewStocksBtn){ viewStocksBtn.textContent = 'View Stocks'; viewStocksBtn.setAttribute('aria-pressed','false'); }
+  }
 })();
 lockApp();
 </script>
 </body>
 </html>
-
-
