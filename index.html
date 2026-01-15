@@ -1,1 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puspanjali Stores POS — Full Version</title>
 
+<!-- Google OAuth -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+:root{
+  --bg:#f5f7fb;--card:#fff;--accent:#2563eb;--muted:#666
+}
+*{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto}
+body{margin:0;background:var(--bg);color:#111}
+.container{max-width:1200px;margin:auto;padding:16px}
+.card{background:var(--card);border-radius:8px;padding:14px;
+      box-shadow:0 6px 18px rgba(0,0,0,.08)}
+h1,h2,h3{margin:6px 0}
+label{font-size:13px;color:#444}
+input,select,button,textarea{
+  width:100%;padding:8px;margin-top:6px;border-radius:6px;
+  border:1px solid #dcdfe6
+}
+button{cursor:pointer}
+.small{font-size:13px;padding:6px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:1fr 420px;gap:12px}
+.hidden{display:none}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
+.right{text-align:right}
+.error{color:#b00020;font-size:13px;margin-top:6px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginOverlay" class="container">
+  <div class="card" style="max-width:360px;margin:auto">
+    <h2>Puspanjali POS Login</h2>
+    <label>Username</label>
+    <input id="loginUser">
+    <label>Password</label>
+    <input id="loginPass" type="password">
+    <button id="loginBtn" style="margin-top:10px">Login</button>
+    <div id="loginError" class="error hidden">Invalid credentials</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="container hidden">
+
+<header class="card">
+  <h1>Puspanjali Stores — POS</h1>
+  <div class="actions">
+    <button id="googleLoginBtn" class="small">Sign in with Google</button>
+    <button id="syncUpBtn" class="small">☁ Sync to Cloud</button>
+    <button id="syncDownBtn" class="small">☁ Sync from Cloud</button>
+    <button id="logoutBtn" class="small">Logout</button>
+  </div>
+</header>
+
+<div class="grid" style="margin-top:12px">
+
+<!-- LEFT COLUMN -->
+<div>
+
+  <!-- PRODUCTS -->
+  <div class="card">
+    <h3>Products / Stock</h3>
+
+    <label>Product name</label>
+    <input id="pName">
+
+    <label>SKU</label>
+    <input id="pSku">
+
+    <label>Price (₹)</label>
+    <input id="pPrice" type="number">
+
+    <label>Stock quantity</label>
+    <input id="pStock" type="number">
+
+    <label>Unit</label>
+    <select id="pUnit">
+      <option>Pieces</option>
+      <option>Kg</option>
+      <option>Gram</option>
+      <option>Dozen</option>
+      <option>Bundle</option>
+    </select>
+
+    <div class="actions" style="margin-top:8px">
+      <button id="addProductBtn">Add / Update</button>
+      <button id="clearProductBtn" class="small">Clear</button>
+      <button id="toggleStockBtn" class="small">View Stocks</button>
+    </div>
+
+    <label style="margin-top:10px">Search products</label>
+    <input id="searchProduct">
+
+    <table id="productTable" class="hidden">
+      <thead>
+        <tr>
+          <th>Name</th><th>SKU</th><th>Price</th><th>Stock</th><th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- RIGHT COLUMN -->
+<div>
+
+  <!-- BILLING (placeholder for now) -->
+  <div class="card">
+    <h3>Create Sale</h3>
+    <p class="muted">Billing engine will be enabled in Part 2 & 3</p>
+  </div>
+
+</div>
+
+</div>
+
+<footer style="margin-top:12px;color:#666;font-size:13px">
+  Offline-first POS • Full feature version • GitHub ready
+</footer>
+
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const LOGIN_USER = "Puspanjali";
+const LOGIN_PASS = "Welcome1";
+
+const GOOGLE_CLIENT_ID =
+"728514006606-jmcucjfbl9m9jgvhvpmkb5s3trla7c8n.apps.googleusercontent.com";
+
+const DRIVE_FILE_NAME = "puspanjali_pos_cloud.json";
+
+/* ================= STORAGE KEYS ================= */
+const KEY_PRODUCTS = "ps_products_full";
+const KEY_SALES = "ps_sales_full";
+
+/* ================= STATE ================= */
+let products = [];
+let sales = [];
+let editProductId = null;
+let googleToken = null;
+
+/* ================= HELPERS ================= */
+function save(key,data){ localStorage.setItem(key,JSON.stringify(data)); }
+function load(key){ try{return JSON.parse(localStorage.getItem(key)||"[]")}catch(e){return []} }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+/* ================= LOGIN ================= */
+loginBtn.onclick = ()=>{
+  if(loginUser.value===LOGIN_USER && loginPass.value===LOGIN_PASS){
+    loginOverlay.classList.add("hidden");
+    app.classList.remove("hidden");
+    init();
+  }else{
+    loginError.classList.remove("hidden");
+  }
+};
+
+logoutBtn.onclick = ()=>location.reload();
+
+/* ================= INIT ================= */
+function init(){
+  products = load(KEY_PRODUCTS);
+  sales = load(KEY_SALES);
+}
+</script>
+<script>
+/* =========================================================
+   PART 2 — PRODUCTS & STOCK MANAGEMENT (FULL VERSION)
+   ========================================================= */
+
+/* ---------- INIT EXTENSION ---------- */
+function init(){
+  products = load(KEY_PRODUCTS);
+  sales = load(KEY_SALES);
+
+  if(!Array.isArray(products)) products = [];
+  if(!Array.isArray(sales)) sales = [];
+
+  // sample data (only if empty)
+  if(products.length === 0){
+    products = [
+      { id: uid(), name:"Incense Sticks", sku:"INC-01", price:20, stock:120, unit:"Pieces", updated_at:new Date().toISOString() },
+      { id: uid(), name:"Diya (Large)", sku:"DIYA-L", price:15, stock:60, unit:"Pieces", updated_at:new Date().toISOString() }
+    ];
+    save(KEY_PRODUCTS, products);
+  }
+
+  renderProducts();
+}
+
+/* ---------- PRODUCT ADD / UPDATE ---------- */
+addProductBtn.onclick = ()=>{
+  const name = pName.value.trim();
+  const sku  = pSku.value.trim();
+  const price = Number(pPrice.value);
+  const stock = Number(pStock.value);
+  const unit = pUnit.value;
+
+  if(!name || price<=0){
+    alert("Enter valid product name and price");
+    return;
+  }
+
+  /* EDIT MODE */
+  if(editProductId){
+    const p = products.find(x=>x.id===editProductId);
+    if(p){
+      p.name=name; p.sku=sku; p.price=price;
+      p.stock=stock; p.unit=unit;
+      p.updated_at=new Date().toISOString();
+      editProductId=null;
+      addProductBtn.textContent="Add / Update";
+      clearProductForm();
+      save(KEY_PRODUCTS,products);
+      renderProducts();
+      return;
+    }
+  }
+
+  /* CHECK EXISTING BY SKU OR NAME */
+  const existing = products.find(p =>
+    (sku && p.sku.toLowerCase()===sku.toLowerCase()) ||
+    p.name.toLowerCase()===name.toLowerCase()
+  );
+
+  if(existing){
+    const ok = confirm(
+      `Product already exists:\n\n${existing.name}\nSKU: ${existing.sku||"-"}\nStock: ${existing.stock}\n\n`+
+      `Press OK to ADD stock to existing product.\nPress Cancel to create a NEW product.`
+    );
+    if(ok){
+      existing.stock += stock;
+      if(existing.price !== price){
+        if(confirm(`Update price from ₹${existing.price} to ₹${price}?`)){
+          existing.price = price;
+        }
+      }
+      existing.unit = unit;
+      existing.updated_at=new Date().toISOString();
+      save(KEY_PRODUCTS,products);
+      renderProducts();
+      clearProductForm();
+      return;
+    }
+  }
+
+  /* CREATE NEW PRODUCT */
+  products.push({
+    id: uid(),
+    name, sku, price,
+    stock: Math.max(0,stock),
+    unit,
+    updated_at:new Date().toISOString()
+  });
+
+  save(KEY_PRODUCTS,products);
+  renderProducts();
+  clearProductForm();
+};
+
+/* ---------- CLEAR FORM ---------- */
+clearProductBtn.onclick = clearProductForm;
+function clearProductForm(){
+  pName.value=""; pSku.value=""; pPrice.value="";
+  pStock.value=""; pUnit.value="Pieces";
+}
+
+/* ---------- RENDER PRODUCTS ---------- */
+function renderProducts(filter=""){
+  const tbody = document.querySelector("#productTable tbody");
+  tbody.innerHTML="";
+
+  const q = filter.toLowerCase();
+  products
+    .filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.sku||"").toLowerCase().includes(q)
+    )
+    .forEach(p=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`
+        <td>${p.name}<div style="font-size:11px;color:#666">${p.unit}</div></td>
+        <td>${p.sku||""}</td>
+        <td>₹${p.price}</td>
+        <td>${p.stock}</td>
+        <td>
+          <button class="small" onclick="editProduct('${p.id}')">Edit</button>
+          <button class="small" onclick="deleteProduct('${p.id}')">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+}
+
+/* ---------- EDIT PRODUCT ---------- */
+window.editProduct = (id)=>{
+  const p = products.find(x=>x.id===id);
+  if(!p) return;
+  pName.value=p.name;
+  pSku.value=p.sku||"";
+  pPrice.value=p.price;
+  pStock.value=p.stock;
+  pUnit.value=p.unit;
+  editProductId=id;
+  addProductBtn.textContent="Save Changes";
+};
+
+/* ---------- DELETE PRODUCT ---------- */
+window.deleteProduct = (id)=>{
+  if(!confirm("Delete this product?")) return;
+  products = products.filter(p=>p.id!==id);
+  save(KEY_PRODUCTS,products);
+  renderProducts();
+};
+
+/* ---------- SEARCH ---------- */
+searchProduct.oninput = e => renderProducts(e.target.value);
+
+/* ---------- VIEW / HIDE STOCK TABLE ---------- */
+toggleStockBtn.onclick = ()=>{
+  productTable.classList.toggle("hidden");
+  toggleStockBtn.textContent =
+    productTable.classList.contains("hidden")
+    ? "View Stocks" : "Hide Stocks";
+};
+</script>
+<script>
+/* =========================================================
+   PART 3 — BILLING, SALES, REPORTS & CLOUD SYNC
+   ========================================================= */
+
+/* ================= BILLING UI ================= */
+
+/* Replace billing placeholder */
+document.querySelector(".muted").parentElement.innerHTML = `
+  <h3>Create Sale</h3>
+
+  <label>Search product</label>
+  <input id="billSearch" placeholder="Type product name / SKU">
+
+  <label>Select product</label>
+  <select id="billProduct"></select>
+
+  <div class="actions" style="margin-top:6px">
+    <input id="billQty" type="number" placeholder="Qty" min="1">
+    <input id="billRate" type="number" placeholder="Rate">
+    <button id="addToCartBtn">Add</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr>
+    </thead>
+    <tbody id="cartTable"></tbody>
+  </table>
+
+  <div style="margin-top:8px">
+    <label>Discount (₹)</label>
+    <input id="discountInput" type="number" value="0">
+  </div>
+
+  <h3 class="right">Grand Total: ₹ <span id="grandTotal">0</span></h3>
+
+  <div class="actions">
+    <button id="saveInvoiceBtn">Save & Print</button>
+    <button id="clearCartBtn" class="small">Clear</button>
+  </div>
+`;
+
+/* ================= BILLING STATE ================= */
+let cart = [];
+
+/* ================= BILLING HELPERS ================= */
+function refreshProductSelect(list){
+  const sel = document.getElementById("billProduct");
+  sel.innerHTML = `<option value="">-- Select --</option>`;
+  list.forEach(p=>{
+    sel.innerHTML += `<option value="${p.id}">${p.name} (${p.unit}) — ₹${p.price}</option>`;
+  });
+}
+
+function renderCart(){
+  const tbody = document.getElementById("cartTable");
+  tbody.innerHTML = "";
+  let total = 0;
+
+  cart.forEach((c,i)=>{
+    const amt = c.qty * c.rate;
+    total += amt;
+    tbody.innerHTML += `
+      <tr>
+        <td>${c.name}</td>
+        <td>${c.qty}</td>
+        <td>${c.rate}</td>
+        <td>${amt}</td>
+        <td><button class="small" onclick="removeCart(${i})">X</button></td>
+      </tr>
+    `;
+  });
+
+  const discount = Number(document.getElementById("discountInput").value)||0;
+  document.getElementById("grandTotal").textContent =
+    Math.max(0, total - discount).toFixed(2);
+}
+
+window.removeCart = i=>{
+  cart.splice(i,1);
+  renderCart();
+};
+
+/* ================= BILLING EVENTS ================= */
+billSearch.oninput = e=>{
+  const q = e.target.value.toLowerCase();
+  const res = products.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    (p.sku||"").toLowerCase().includes(q)
+  );
+  refreshProductSelect(res);
+};
+
+billProduct.onchange = ()=>{
+  const p = products.find(x=>x.id===billProduct.value);
+  if(p){
+    billRate.value = p.price;
+    billQty.value = 1;
+  }
+};
+
+addToCartBtn.onclick = ()=>{
+  const p = products.find(x=>x.id===billProduct.value);
+  const qty = Number(billQty.value);
+  const rate = Number(billRate.value);
+
+  if(!p || qty<=0 || rate<=0) return alert("Invalid item");
+
+  if(p.stock < qty){
+    if(!confirm("Stock is less than quantity. Continue?")) return;
+  }
+
+  cart.push({id:p.id,name:p.name,qty,rate,unit:p.unit});
+  renderCart();
+};
+
+/* ================= SAVE INVOICE ================= */
+saveInvoiceBtn.onclick = ()=>{
+  if(cart.length===0) return alert("Cart empty");
+
+  const subtotal = cart.reduce((s,c)=>s+(c.qty*c.rate),0);
+  const discount = Number(discountInput.value)||0;
+  const total = Math.max(0,subtotal-discount);
+
+  const invoice = {
+    id: uid(),
+    inv: "INV"+Date.now().toString().slice(-6),
+    date: Date.now(),
+    items: cart,
+    subtotal, discount, total
+  };
+
+  /* Deduct stock */
+  invoice.items.forEach(it=>{
+    const p = products.find(x=>x.id===it.id);
+    if(p){
+      p.stock = Math.max(0, p.stock - it.qty);
+      p.updated_at = new Date().toISOString();
+    }
+  });
+
+  sales.push(invoice);
+  save(KEY_PRODUCTS,products);
+  save(KEY_SALES,sales);
+
+  cart=[];
+  renderProducts();
+  renderCart();
+  alert("Invoice saved");
+  printInvoice(invoice);
+};
+
+clearCartBtn.onclick = ()=>{
+  cart=[];
+  renderCart();
+};
+
+/* ================= RECEIPT (58mm) ================= */
+function printInvoice(inv){
+  let html = `
+    <div style="font-family:monospace;width:58mm">
+      <center><b>Puspanjali Stores</b></center>
+      <center>Invoice ${inv.inv}</center><hr>
+  `;
+  inv.items.forEach((it,i)=>{
+    html += `${i+1}. ${it.name} ${it.qty} x ${it.rate} = ${it.qty*it.rate}<br>`;
+  });
+  html += `<hr>
+    Subtotal: ${inv.subtotal}<br>
+    Discount: ${inv.discount}<br>
+    <b>Total: ${inv.total}</b>
+    <hr><center>Thank you</center>
+  </div>`;
+
+  const w = window.open("");
+  w.document.write(html);
+  w.print();
+}
+
+/* ================= SALES HISTORY ================= */
+const salesCard = document.createElement("div");
+salesCard.className="card";
+salesCard.innerHTML=`
+  <h3>Sales History</h3>
+  <table>
+    <thead>
+      <tr><th>Invoice</th><th>Date</th><th>Total</th><th></th></tr>
+    </thead>
+    <tbody id="salesTable"></tbody>
+  </table>
+`;
+document.querySelector(".grid > div").appendChild(salesCard);
+
+function renderSales(){
+  const tbody=document.getElementById("salesTable");
+  tbody.innerHTML="";
+  sales.slice().reverse().forEach(s=>{
+    tbody.innerHTML+=`
+      <tr>
+        <td>${s.inv}</td>
+        <td>${new Date(s.date).toLocaleString()}</td>
+        <td>₹${s.total}</td>
+        <td><button class="small" onclick="reprint('${s.id}')">Reprint</button></td>
+      </tr>
+    `;
+  });
+}
+
+window.reprint = id=>{
+  const s = sales.find(x=>x.id===id);
+  if(s) printInvoice(s);
+};
+
+/* ================= EXPORT / IMPORT ================= */
+function download(name,data){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([data]));
+  a.download=name;
+  a.click();
+}
+
+window.exportJSON = ()=>{
+  download("pos_backup.json",JSON.stringify({products,sales},null,2));
+};
+
+/* ================= GOOGLE DRIVE SYNC ================= */
+googleLoginBtn.onclick = ()=>{
+  google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: "https://www.googleapis.com/auth/drive.file",
+    callback: r=>{
+      googleToken = r.access_token;
+      alert("Google Drive connected");
+    }
+  }).requestAccessToken();
+};
+
+async function findDriveFile(){
+  const r = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}'`,
+    {headers:{Authorization:`Bearer ${googleToken}`}}
+  );
+  const j = await r.json();
+  return j.files?.[0]?.id || null;
+}
+
+syncUpBtn.onclick = async ()=>{
+  if(!googleToken) return alert("Login Google first");
+  const data = JSON.stringify({products,sales});
+  const id = await findDriveFile();
+
+  if(id){
+    await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`,
+      {method:"PATCH",headers:{Authorization:`Bearer ${googleToken}`},body:data}
+    );
+  }else{
+    const f=new FormData();
+    f.append("metadata",new Blob([JSON.stringify({name:DRIVE_FILE_NAME})],{type:"application/json"}));
+    f.append("file",new Blob([data],{type:"application/json"}));
+    await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+      {method:"POST",headers:{Authorization:`Bearer ${googleToken}`},body:f}
+    );
+  }
+  alert("Synced to cloud");
+};
+
+syncDownBtn.onclick = async ()=>{
+  if(!googleToken) return alert("Login Google first");
+  const id = await findDriveFile();
+  if(!id) return alert("No cloud data");
+
+  const r = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${id}?alt=media`,
+    {headers:{Authorization:`Bearer ${googleToken}`}}
+  );
+  const d = await r.json();
+  products=d.products||[];
+  sales=d.sales||[];
+  save(KEY_PRODUCTS,products);
+  save(KEY_SALES,sales);
+  renderProducts();
+  renderSales();
+  alert("Cloud data loaded");
+};
+
+/* ================= FINAL INIT HOOK ================= */
+const oldInit = init;
+init = ()=>{
+  oldInit();
+  refreshProductSelect(products);
+  renderSales();
+};
+</script>
