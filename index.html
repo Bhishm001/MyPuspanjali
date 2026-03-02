@@ -193,14 +193,14 @@ receipt += "Invoice: " + bill.invoice + "\n";
 receipt += "Date: " + bill.date + "\n";
 receipt += "--------------------------------\n";
 
-receipt += "Sr Item       Qty Rate Amt\n";
+receipt += "Sr Item        Qty Rate  Amt\n";
 receipt += "--------------------------------\n";
 
 bill.items.forEach((it,i)=>{
-let name = it.name.substring(0,10).padEnd(10," ");
+let name = it.name.substring(0,12).padEnd(12," ");
 let qty = String(it.qty).padStart(3," ");
-let rate = String(it.rate).padStart(4," ");
-let amt = (it.qty*it.rate).toFixed(0).padStart(4," ");
+let rate = String(it.rate).padStart(5," ");
+let amt = (it.qty*it.rate).toFixed(2).padStart(6," ");
 
 receipt += `${i+1} ${name} ${qty} ${rate} ${amt}\n`;
 });
@@ -208,19 +208,15 @@ receipt += `${i+1} ${name} ${qty} ${rate} ${amt}\n`;
 receipt += "--------------------------------\n";
 receipt += "TOTAL: Rs " + bill.total.toFixed(2) + "\n";
 receipt += "--------------------------------\n";
-receipt += "Thank You Visit Again\n\n\n";
+receipt += "Thank You Visit Again\n\n";
 
-const blob = new Blob([receipt], {type:"text/plain"});
-const file = new File([blob], "bill.txt", {type:"text/plain"});
-
-if(navigator.canShare && navigator.canShare({files:[file]})){
+if(navigator.share){
 navigator.share({
-files:[file],
-title:"Print Bill",
-text:"Print via RawBT"
+title:"Bill",
+text: receipt
 });
 }else{
-alert("Sharing not supported.");
+alert("Sharing not supported on this device.");
 }
 
 }
