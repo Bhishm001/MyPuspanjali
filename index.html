@@ -9,20 +9,18 @@
 body{font-family:Arial;margin:0;background:#f2f2f2}
 .container{max-width:900px;margin:auto;padding:15px}
 .card{background:#fff;padding:15px;margin-bottom:15px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.08)}
-h2{margin-top:0}
-input,button{padding:8px;margin-top:5px;border-radius:5px;border:1px solid #ccc;width:100%}
+input,button{padding:8px;margin-top:6px;border-radius:5px;border:1px solid #ccc;width:100%}
 button{cursor:pointer}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 .right{text-align:right}
-.bold{font-weight:bold}
-#loginBox{position:fixed;top:0;left:0;right:0;bottom:0;background:#00000080;display:flex;justify-content:center;align-items:center}
+#loginBox{position:fixed;top:0;left:0;right:0;bottom:0;background:#00000080;display:flex;align-items:center;justify-content:center}
 #loginCard{background:#fff;padding:20px;border-radius:8px;width:300px}
 </style>
 </head>
+
 <body>
 
-<!-- LOGIN -->
 <div id="loginBox">
 <div id="loginCard">
 <h3>Login</h3>
@@ -33,7 +31,7 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 </div>
 </div>
 
-<div class="container" id="app" style="display:none;">
+<div class="container" id="app" style="display:none">
 
 <div class="card">
 <h2>Create Bill</h2>
@@ -63,7 +61,7 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 <tbody id="cartBody"></tbody>
 </table>
 
-<h3 class="right">Total: ₹<span id="total">0</span></h3>
+<h3 class="right">Total ₹ <span id="total">0</span></h3>
 
 <button onclick="saveBill()">Save & Print</button>
 <button onclick="clearBill()">Clear</button>
@@ -114,9 +112,12 @@ function addItem(){
 let name=itemName.value.trim();
 let q=parseFloat(qty.value);
 let r=parseFloat(rate.value);
+
 if(!name||!q||!r)return alert("Enter all fields");
+
 cart.push({name,qty:q,rate:r});
 renderCart();
+
 itemName.value="";
 qty.value="";
 rate.value="";
@@ -125,9 +126,11 @@ rate.value="";
 function renderCart(){
 cartBody.innerHTML="";
 let total=0;
+
 cart.forEach((c,i)=>{
 let amt=c.qty*c.rate;
 total+=amt;
+
 cartBody.innerHTML+=`
 <tr>
 <td>${i+1}</td>
@@ -136,8 +139,10 @@ cartBody.innerHTML+=`
 <td>${c.rate}</td>
 <td>${amt.toFixed(2)}</td>
 <td><button onclick="removeItem(${i})">X</button></td>
-</tr>`;
+</tr>
+`;
 });
+
 document.getElementById("total").innerText=total.toFixed(2);
 }
 
@@ -156,78 +161,134 @@ return "INV-"+Date.now();
 }
 
 function saveBill(){
+
 if(cart.length===0)return alert("No items");
+
 let invoice=generateInvoice();
 let total=parseFloat(document.getElementById("total").innerText);
-let bill={invoice,date:new Date().toLocaleString(),items:[...cart],total};
+
+let bill={
+invoice,
+date:new Date().toLocaleString(),
+items:[...cart],
+total
+};
+
 sales.push(bill);
+
 localStorage.setItem("sales",JSON.stringify(sales));
+
 printBill(bill);
+
 clearBill();
+
 renderSales();
 }
 
 function renderSales(){
+
 salesBody.innerHTML="";
+
 sales.slice().reverse().forEach((s,i)=>{
+
 salesBody.innerHTML+=`
 <tr>
 <td>${s.invoice}</td>
 <td>${s.date}</td>
 <td>₹${s.total.toFixed(2)}</td>
 <td><button onclick="printBill(sales[${sales.length-1-i}])">Reprint</button></td>
-</tr>`;
+</tr>
+`;
+
 });
 }
 
 function printBill(bill){
 
-let receipt = "";
-receipt += "PUSPANJALI STORES\n";
-receipt += "NAC Market Shop No 147\n";
-receipt += "Saharpura Sindri, Dhanbad\n";
-receipt += "Ph: 7677812208, 9771996024\n";
-receipt += "--------------------------------\n";
+const canvas=document.createElement("canvas");
+const ctx=canvas.getContext("2d");
 
-receipt += "Invoice: " + bill.invoice + "\n";
-receipt += "Date: " + bill.date + "\n";
-receipt += "--------------------------------\n";
+canvas.width=384;
+canvas.height=1000;
 
-receipt += "Sr Item        Qty Rate  Amt\n";
-receipt += "--------------------------------\n";
+let y=20;
+
+ctx.fillStyle="#000";
+ctx.font="16px monospace";
+
+const logo=new Image();
+logo.src="logo.png";
+
+const qr=new Image();
+qr.src="phonepe_qr.png";
+
+logo.onload=function(){
+
+ctx.drawImage(logo,120,y,140,60);
+y+=80;
+
+ctx.fillText("PUSPANJALI STORES",80,y); y+=25;
+ctx.fillText("NAC Market Shop No 147",40,y); y+=20;
+ctx.fillText("Saharpura Sindri, Dhanbad",35,y); y+=20;
+ctx.fillText("Ph: 7677812208,9771996024",45,y); y+=30;
+
+ctx.fillText("--------------------------------",10,y); y+=20;
+
+ctx.fillText("Invoice: "+bill.invoice,10,y); y+=20;
+ctx.fillText("Date: "+bill.date,10,y); y+=25;
+
+ctx.fillText("--------------------------------",10,y); y+=20;
 
 bill.items.forEach((it,i)=>{
-let name = it.name.substring(0,12).padEnd(12," ");
-let qty = String(it.qty).padStart(3," ");
-let rate = String(it.rate).padStart(5," ");
-let amt = (it.qty*it.rate).toFixed(2).padStart(6," ");
-
-receipt += `${i+1} ${name} ${qty} ${rate} ${amt}\n`;
+ctx.fillText(`${i+1}. ${it.name}`,10,y);
+ctx.fillText(`${it.qty} x ${it.rate}`,200,y);
+ctx.fillText((it.qty*it.rate).toFixed(2),310,y);
+y+=22;
 });
 
-receipt += "--------------------------------\n";
-receipt += "TOTAL: Rs " + bill.total.toFixed(2) + "\n";
-receipt += "--------------------------------\n";
-receipt += "Thank You Visit Again\n\n";
+ctx.fillText("--------------------------------",10,y); y+=25;
 
-if(navigator.share){
-navigator.share({
-title:"Bill",
-text: receipt
-});
+ctx.font="bold 20px monospace";
+ctx.fillText("TOTAL ₹ "+bill.total.toFixed(2),80,y);
+
+y+=40;
+
+qr.onload=function(){
+
+ctx.drawImage(qr,120,y,140,140);
+y+=160;
+
+ctx.font="16px monospace";
+ctx.fillText("Scan PhonePe QR to Pay",90,y);
+
+canvas.toBlob(function(blob){
+
+const file=new File([blob],"bill.png",{type:"image/png"});
+
+if(navigator.canShare && navigator.canShare({files:[file]})){
+navigator.share({files:[file],title:"Print Bill"});
 }else{
-alert("Sharing not supported on this device.");
+alert("Sharing not supported");
 }
+
+});
+
+};
+
+};
 
 }
 
 function exportCSV(){
+
 let csv="Invoice,Date,Item,Qty,Rate,Amount\n";
+
 sales.forEach(s=>{
 s.items.forEach(it=>{
 csv+=`${s.invoice},"${s.date}","${it.name}",${it.qty},${it.rate},${(it.qty*it.rate).toFixed(2)}\n`;
 });
 });
+
 let blob=new Blob([csv],{type:"text/csv"});
 let a=document.createElement("a");
 a.href=URL.createObjectURL(blob);
@@ -244,5 +305,6 @@ a.click();
 }
 
 </script>
+
 </body>
 </html>
