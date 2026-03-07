@@ -83,11 +83,6 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 </table>
 </div>
 
-<div class="card">
-<button onclick="exportCSV()">Export CSV</button>
-<button onclick="exportJSON()">Export JSON</button>
-</div>
-
 </div>
 
 <script>
@@ -124,12 +119,10 @@ rate.value="";
 }
 
 function renderCart(){
-
 cartBody.innerHTML="";
 let total=0;
 
 cart.forEach((c,i)=>{
-
 let amt=c.qty*c.rate;
 total+=amt;
 
@@ -143,7 +136,6 @@ cartBody.innerHTML+=`
 <td><button onclick="removeItem(${i})">X</button></td>
 </tr>
 `;
-
 });
 
 document.getElementById("total").innerText=total.toFixed(2);
@@ -178,7 +170,6 @@ total
 };
 
 sales.push(bill);
-
 localStorage.setItem("sales",JSON.stringify(sales));
 
 printBill(bill);
@@ -207,11 +198,21 @@ salesBody.innerHTML+=`
 
 function printBill(bill){
 
+const printWindow=window.open("","PRINT","height=600,width=400");
+
 let html=`
 <html>
-<body style="font-family:monospace">
+<head>
+<title>Bill</title>
+<style>
+body{font-family:monospace;text-align:center}
+table{width:100%;border-collapse:collapse}
+td{padding:3px}
+</style>
+</head>
 
-<center>
+<body>
+
 <img src="logo.png" width="120"><br>
 
 <b>PUSPANJALI STORES</b><br>
@@ -225,9 +226,9 @@ Ph: 7677812208,9771996024<br>
 Invoice: ${bill.invoice}<br>
 Date: ${bill.date}<br>
 
---------------------------------<br>
+--------------------------------
 
-<table style="width:100%">
+<table>
 `;
 
 bill.items.forEach((it,i)=>{
@@ -248,51 +249,24 @@ html+=`
 
 <b>TOTAL ₹ ${bill.total.toFixed(2)}</b><br><br>
 
-<img src="phonepe_qr.png" width="150"><br>
+<img src="phonepe_qr.jpg" width="140"><br>
 Scan PhonePe QR to Pay<br><br>
 
 <i>In memory of Late Shri Jitendra Kumar</i>
 
-</center>
-
 <script>
-window.print()
+window.onload=function(){
+window.print();
+}
 <\/script>
 
 </body>
 </html>
 `;
 
-let win=window.open("","PRINT");
-win.document.write(html);
-win.document.close();
-}
+printWindow.document.write(html);
+printWindow.document.close();
 
-function exportCSV(){
-
-let csv="Invoice,Date,Item,Qty,Rate,Amount\n";
-
-sales.forEach(s=>{
-s.items.forEach(it=>{
-csv+=`${s.invoice},"${s.date}","${it.name}",${it.qty},${it.rate},${(it.qty*it.rate).toFixed(2)}\n`;
-});
-});
-
-let blob=new Blob([csv],{type:"text/csv"});
-let a=document.createElement("a");
-a.href=URL.createObjectURL(blob);
-a.download="sales.csv";
-a.click();
-}
-
-function exportJSON(){
-
-let blob=new Blob([JSON.stringify(sales,null,2)],{type:"application/json"});
-
-let a=document.createElement("a");
-a.href=URL.createObjectURL(blob);
-a.download="sales.json";
-a.click();
 }
 
 </script>
