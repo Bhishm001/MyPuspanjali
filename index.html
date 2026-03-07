@@ -124,10 +124,12 @@ rate.value="";
 }
 
 function renderCart(){
+
 cartBody.innerHTML="";
 let total=0;
 
 cart.forEach((c,i)=>{
+
 let amt=c.qty*c.rate;
 total+=amt;
 
@@ -141,6 +143,7 @@ cartBody.innerHTML+=`
 <td><button onclick="removeItem(${i})">X</button></td>
 </tr>
 `;
+
 });
 
 document.getElementById("total").innerText=total.toFixed(2);
@@ -181,7 +184,6 @@ localStorage.setItem("sales",JSON.stringify(sales));
 printBill(bill);
 
 clearBill();
-
 renderSales();
 }
 
@@ -205,78 +207,65 @@ salesBody.innerHTML+=`
 
 function printBill(bill){
 
-const canvas=document.createElement("canvas");
-const ctx=canvas.getContext("2d");
+let html=`
+<html>
+<body style="font-family:monospace">
 
-canvas.width=384;
-canvas.height=1000;
+<center>
+<img src="logo.png" width="120"><br>
 
-let y=20;
+<b>PUSPANJALI STORES</b><br>
+NAC MARKET SHOP NO.147<br>
+SAHARPURA, SINDRI<br>
+DHANBAD - 828122<br>
+Ph: 7677812208,9771996024<br>
 
-ctx.fillStyle="#000";
-ctx.font="16px monospace";
+--------------------------------<br>
 
-const logo=new Image();
-logo.src="logo.png";
+Invoice: ${bill.invoice}<br>
+Date: ${bill.date}<br>
 
-const qr=new Image();
-qr.src="phonepe_qr.png";
+--------------------------------<br>
 
-logo.onload=function(){
-
-ctx.drawImage(logo,120,y,140,60);
-y+=80;
-
-ctx.fillText("PUSPANJALI STORES",80,y); y+=25;
-ctx.fillText("NAC Market Shop No 147",40,y); y+=20;
-ctx.fillText("Saharpura Sindri, Dhanbad",35,y); y+=20;
-ctx.fillText("Ph: 7677812208,9771996024",45,y); y+=30;
-
-ctx.fillText("--------------------------------",10,y); y+=20;
-
-ctx.fillText("Invoice: "+bill.invoice,10,y); y+=20;
-ctx.fillText("Date: "+bill.date,10,y); y+=25;
-
-ctx.fillText("--------------------------------",10,y); y+=20;
+<table style="width:100%">
+`;
 
 bill.items.forEach((it,i)=>{
-ctx.fillText(`${i+1}. ${it.name}`,10,y);
-ctx.fillText(`${it.qty} x ${it.rate}`,200,y);
-ctx.fillText((it.qty*it.rate).toFixed(2),310,y);
-y+=22;
+html+=`
+<tr>
+<td>${i+1}. ${it.name}</td>
+<td>${it.qty}</td>
+<td>${it.rate}</td>
+<td>${(it.qty*it.rate).toFixed(2)}</td>
+</tr>
+`;
 });
 
-ctx.fillText("--------------------------------",10,y); y+=25;
+html+=`
+</table>
 
-ctx.font="bold 20px monospace";
-ctx.fillText("TOTAL ₹ "+bill.total.toFixed(2),80,y);
+--------------------------------<br>
 
-y+=40;
+<b>TOTAL ₹ ${bill.total.toFixed(2)}</b><br><br>
 
-qr.onload=function(){
+<img src="phonepe_qr.png" width="150"><br>
+Scan PhonePe QR to Pay<br><br>
 
-ctx.drawImage(qr,120,y,140,140);
-y+=160;
+<i>In memory of Late Shri Jitendra Kumar</i>
 
-ctx.font="16px monospace";
-ctx.fillText("Scan PhonePe QR to Pay",90,y);
+</center>
 
-canvas.toBlob(function(blob){
+<script>
+window.print()
+<\/script>
 
-const file=new File([blob],"bill.png",{type:"image/png"});
+</body>
+</html>
+`;
 
-if(navigator.canShare && navigator.canShare({files:[file]})){
-navigator.share({files:[file],title:"Print Bill"});
-}else{
-alert("Sharing not supported");
-}
-
-});
-
-};
-
-};
-
+let win=window.open("","PRINT");
+win.document.write(html);
+win.document.close();
 }
 
 function exportCSV(){
@@ -297,7 +286,9 @@ a.click();
 }
 
 function exportJSON(){
+
 let blob=new Blob([JSON.stringify(sales,null,2)],{type:"application/json"});
+
 let a=document.createElement("a");
 a.href=URL.createObjectURL(blob);
 a.download="sales.json";
