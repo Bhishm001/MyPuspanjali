@@ -14,6 +14,7 @@ button{cursor:pointer}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 .right{text-align:right}
+
 #loginBox{position:fixed;top:0;left:0;right:0;bottom:0;background:#00000080;display:flex;align-items:center;justify-content:center}
 #loginCard{background:#fff;padding:20px;border-radius:8px;width:300px}
 </style>
@@ -34,6 +35,7 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 <div class="container" id="app" style="display:none">
 
 <div class="card">
+
 <h2>Create Bill</h2>
 
 <label>Item Name</label>
@@ -54,10 +56,11 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 <th>Item</th>
 <th>Qty</th>
 <th>Rate</th>
-<th>Amount</th>
+<th>Amt</th>
 <th></th>
 </tr>
 </thead>
+
 <tbody id="cartBody"></tbody>
 </table>
 
@@ -69,7 +72,9 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 </div>
 
 <div class="card">
+
 <h2>Sales History</h2>
+
 <table>
 <thead>
 <tr>
@@ -79,8 +84,10 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 <th></th>
 </tr>
 </thead>
+
 <tbody id="salesBody"></tbody>
 </table>
+
 </div>
 
 </div>
@@ -104,6 +111,7 @@ loginError.style.display="block";
 }
 
 function addItem(){
+
 let name=itemName.value.trim();
 let q=parseFloat(qty.value);
 let r=parseFloat(rate.value);
@@ -119,10 +127,12 @@ rate.value="";
 }
 
 function renderCart(){
+
 cartBody.innerHTML="";
 let total=0;
 
 cart.forEach((c,i)=>{
+
 let amt=c.qty*c.rate;
 total+=amt;
 
@@ -136,6 +146,7 @@ cartBody.innerHTML+=`
 <td><button onclick="removeItem(${i})">X</button></td>
 </tr>
 `;
+
 });
 
 document.getElementById("total").innerText=total.toFixed(2);
@@ -198,22 +209,40 @@ salesBody.innerHTML+=`
 
 function printBill(bill){
 
-const printWindow=window.open("","PRINT","height=600,width=400");
+const win=window.open("","PRINT");
 
 let html=`
 <html>
 <head>
-<title>Bill</title>
 <style>
-body{font-family:monospace;text-align:center}
-table{width:100%;border-collapse:collapse}
-td{padding:3px}
+
+body{
+width:58mm;
+font-family:monospace;
+font-size:12px;
+margin:0;
+padding:5px;
+}
+
+.center{text-align:center}
+
+table{
+width:100%;
+font-size:12px;
+}
+
+td{
+padding:2px;
+}
+
 </style>
 </head>
 
 <body>
 
-<img src="logo.png" width="120"><br>
+<div class="center">
+
+<img src="logo.png" width="80"><br>
 
 <b>PUSPANJALI STORES</b><br>
 NAC MARKET SHOP NO.147<br>
@@ -221,38 +250,49 @@ SAHARPURA, SINDRI<br>
 DHANBAD - 828122<br>
 Ph: 7677812208,9771996024<br>
 
---------------------------------<br>
+-------------------------------<br>
 
 Invoice: ${bill.invoice}<br>
-Date: ${bill.date}<br>
+${bill.date}<br>
 
---------------------------------
+-------------------------------
+
+</div>
 
 <table>
 `;
 
 bill.items.forEach((it,i)=>{
+
 html+=`
 <tr>
-<td>${i+1}. ${it.name}</td>
+<td>${i+1}.${it.name}</td>
 <td>${it.qty}</td>
 <td>${it.rate}</td>
 <td>${(it.qty*it.rate).toFixed(2)}</td>
 </tr>
 `;
+
 });
 
 html+=`
+
 </table>
 
---------------------------------<br>
+<div class="center">
+
+-------------------------------<br>
 
 <b>TOTAL ₹ ${bill.total.toFixed(2)}</b><br><br>
 
-<img src="phonepe_qr.jpg" width="140"><br>
-Scan PhonePe QR to Pay<br><br>
+<img src="phonepe_qr.jpg" width="120"><br>
 
-<i>In memory of Late Shri Jitendra Kumar</i>
+Scan PhonePe QR<br><br>
+
+In memory of<br>
+Late Shri Jitendra Kumar
+
+</div>
 
 <script>
 window.onload=function(){
@@ -264,8 +304,8 @@ window.print();
 </html>
 `;
 
-printWindow.document.write(html);
-printWindow.document.close();
+win.document.write(html);
+win.document.close();
 
 }
 
