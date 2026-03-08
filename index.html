@@ -44,25 +44,20 @@ background:#fff;padding:20px;border-radius:8px;width:300px
 
 <h2>Create Bill</h2>
 
-<label>Item Name</label>
-<input id="itemName">
-
-<label>Quantity</label>
-<input id="qty" type="number">
-
-<label>Rate</label>
-<input id="rate" type="number">
+<input id="itemName" placeholder="Item Name">
+<input id="qty" type="number" placeholder="Quantity">
+<input id="rate" type="number" placeholder="Rate">
 
 <button onclick="addItem()">Add Item</button>
 
 <table>
 <thead>
 <tr>
-<th>S.No</th>
+<th>#</th>
 <th>Item</th>
 <th>Qty</th>
 <th>Rate</th>
-<th>Amount</th>
+<th>Amt</th>
 <th></th>
 </tr>
 </thead>
@@ -91,6 +86,7 @@ background:#fff;padding:20px;border-radius:8px;width:300px
 </thead>
 
 <tbody id="salesBody"></tbody>
+
 </table>
 
 </div>
@@ -132,6 +128,7 @@ renderCart()
 itemName.value=""
 qty.value=""
 rate.value=""
+
 }
 
 function renderCart(){
@@ -183,7 +180,6 @@ return
 }
 
 let invoice=generateInvoice()
-
 let total=parseFloat(document.getElementById("total").innerText)
 
 let bill={
@@ -224,84 +220,93 @@ salesBody.innerHTML+=`
 
 function printBill(bill){
 
-const canvas=document.createElement("canvas")
-const ctx=canvas.getContext("2d")
+let w=window.open("")
 
-canvas.width=384
-canvas.height=800
+let html=`
+<html>
+<head>
+<style>
+body{
+width:58mm;
+font-family:monospace;
+font-size:12px;
+margin:0;
+padding:5px;
+}
+.center{text-align:center}
+table{width:100%}
+td{padding:2px}
+</style>
+</head>
 
-let y=20
+<body>
 
-ctx.fillStyle="#000"
-ctx.font="16px monospace"
+<div class="center">
 
-const logo=new Image()
-const qr=new Image()
+<img src="logo.png" width="80" onerror="this.style.display='none'"><br>
 
-logo.src="logo.png"
-qr.src="qr.jpg"
+<b>PUSPANJALI STORES</b><br>
+NAC MARKET SHOP NO.147<br>
+SAHARPURA, SINDRI<br>
+DHANBAD - 828122<br>
+Ph:7677812208<br>
 
-logo.onload=function(){
+--------------------------------<br>
 
-ctx.drawImage(logo,120,y,140,60)
-y+=80
+Invoice: ${bill.invoice}<br>
+${bill.date}<br>
 
-ctx.fillText("PUSPANJALI STORES",80,y);y+=25
-ctx.fillText("NAC MARKET SHOP NO.147",40,y);y+=20
-ctx.fillText("SAHARPURA, SINDRI",60,y);y+=20
-ctx.fillText("DHANBAD - 828122",70,y);y+=20
-ctx.fillText("Ph:7677812208",80,y);y+=30
+--------------------------------
 
-ctx.fillText("------------------------------",10,y);y+=20
+</div>
 
-ctx.fillText("Invoice: "+bill.invoice,10,y);y+=20
-ctx.fillText(bill.date,10,y);y+=25
-
-ctx.fillText("------------------------------",10,y);y+=20
+<table>
+`
 
 bill.items.forEach((it,i)=>{
 
-ctx.fillText(`${i+1}. ${it.name}`,10,y)
-ctx.fillText(`${it.qty} x ${it.rate}`,200,y)
-ctx.fillText((it.qty*it.rate).toFixed(2),310,y)
-
-y+=20
-
-})
-
-ctx.fillText("------------------------------",10,y);y+=25
-
-ctx.font="bold 18px monospace"
-ctx.fillText("TOTAL ₹ "+bill.total.toFixed(2),80,y)
-
-y+=40
-
-qr.onload=function(){
-
-ctx.drawImage(qr,120,y,140,140)
-y+=160
-
-ctx.font="16px monospace"
-ctx.fillText("Scan PhonePe QR",110,y)
-
-canvas.toBlob(function(blob){
-
-const file=new File([blob],"bill.png",{type:"image/png"})
-
-if(navigator.canShare && navigator.canShare({files:[file]})){
-navigator.share({
-files:[file],
-title:"Print Bill"
-})
-}else{
-alert("Sharing not supported on this device")
-}
+html+=`
+<tr>
+<td>${i+1}.${it.name}</td>
+<td>${it.qty}</td>
+<td>${it.rate}</td>
+<td>${(it.qty*it.rate).toFixed(2)}</td>
+</tr>
+`
 
 })
 
-}
+html+=`
 
+</table>
+
+<div class="center">
+
+--------------------------------<br>
+
+<b>TOTAL ₹ ${bill.total.toFixed(2)}</b><br><br>
+
+<img src="qr.jpg" width="120" onerror="this.style.display='none'"><br>
+
+Scan PhonePe QR<br><br>
+
+In memory of<br>
+Late Shri Jitendra Kumar
+
+</div>
+
+<script>
+window.onload=function(){
+window.print()
 }
+<\/script>
+
+</body>
+</html>
+`
+
+w.document.write(html)
+w.document.close()
 
 }
 
