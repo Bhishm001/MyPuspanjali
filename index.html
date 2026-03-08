@@ -8,15 +8,21 @@
 <style>
 body{font-family:Arial;margin:0;background:#f2f2f2}
 .container{max-width:900px;margin:auto;padding:15px}
-.card{background:#fff;padding:15px;margin-bottom:15px;border-radius:8px;box-shadow:0 4px 10px rgba(0,0,0,0.08)}
+.card{background:#fff;padding:15px;margin-bottom:15px;border-radius:8px}
 input,button{padding:8px;margin-top:6px;border-radius:5px;border:1px solid #ccc;width:100%}
 button{cursor:pointer}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
-.right{text-align:right}
 
-#loginBox{position:fixed;top:0;left:0;right:0;bottom:0;background:#00000080;display:flex;align-items:center;justify-content:center}
-#loginCard{background:#fff;padding:20px;border-radius:8px;width:300px}
+#loginBox{
+position:fixed;top:0;left:0;right:0;bottom:0;
+background:#00000080;
+display:flex;align-items:center;justify-content:center
+}
+
+#loginCard{
+background:#fff;padding:20px;border-radius:8px;width:300px
+}
 </style>
 </head>
 
@@ -28,7 +34,7 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 <input id="user" placeholder="Username">
 <input id="pass" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
-<p id="loginError" style="color:red;display:none;">Invalid Login</p>
+<p id="loginError" style="color:red;display:none">Invalid Login</p>
 </div>
 </div>
 
@@ -56,17 +62,16 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 <th>Item</th>
 <th>Qty</th>
 <th>Rate</th>
-<th>Amt</th>
+<th>Amount</th>
 <th></th>
 </tr>
 </thead>
-
 <tbody id="cartBody"></tbody>
 </table>
 
-<h3 class="right">Total ₹ <span id="total">0</span></h3>
+<h3>Total ₹ <span id="total">0</span></h3>
 
-<button onclick="saveBill()">Save & Print / PDF</button>
+<button onclick="saveBill()">Save & Print</button>
 <button onclick="clearBill()">Clear</button>
 
 </div>
@@ -94,47 +99,50 @@ th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 
 <script>
 
-const USERNAME="Puspanjali";
-const PASSWORD="Welcome1";
+const USERNAME="Puspanjali"
+const PASSWORD="Welcome1"
 
-let cart=[];
-let sales=JSON.parse(localStorage.getItem("sales")||"[]");
+let cart=[]
+let sales=JSON.parse(localStorage.getItem("sales")||"[]")
 
 function login(){
 if(user.value===USERNAME && pass.value===PASSWORD){
-loginBox.style.display="none";
-app.style.display="block";
-renderSales();
+loginBox.style.display="none"
+app.style.display="block"
+renderSales()
 }else{
-loginError.style.display="block";
+loginError.style.display="block"
 }
 }
 
 function addItem(){
 
-let name=itemName.value.trim();
-let q=parseFloat(qty.value);
-let r=parseFloat(rate.value);
+let name=itemName.value.trim()
+let q=parseFloat(qty.value)
+let r=parseFloat(rate.value)
 
-if(!name||!q||!r)return alert("Enter all fields");
+if(!name||!q||!r){
+alert("Enter all fields")
+return
+}
 
-cart.push({name,qty:q,rate:r});
-renderCart();
+cart.push({name,qty:q,rate:r})
+renderCart()
 
-itemName.value="";
-qty.value="";
-rate.value="";
+itemName.value=""
+qty.value=""
+rate.value=""
 }
 
 function renderCart(){
 
-cartBody.innerHTML="";
-let total=0;
+cartBody.innerHTML=""
+let total=0
 
 cart.forEach((c,i)=>{
 
-let amt=c.qty*c.rate;
-total+=amt;
+let amt=c.qty*c.rate
+total+=amt
 
 cartBody.innerHTML+=`
 <tr>
@@ -145,53 +153,59 @@ cartBody.innerHTML+=`
 <td>${amt.toFixed(2)}</td>
 <td><button onclick="removeItem(${i})">X</button></td>
 </tr>
-`;
+`
 
-});
+})
 
-document.getElementById("total").innerText=total.toFixed(2);
+document.getElementById("total").innerText=total.toFixed(2)
+
 }
 
 function removeItem(i){
-cart.splice(i,1);
-renderCart();
+cart.splice(i,1)
+renderCart()
 }
 
 function clearBill(){
-cart=[];
-renderCart();
+cart=[]
+renderCart()
 }
 
 function generateInvoice(){
-return "INV-"+Date.now();
+return "INV-"+Date.now()
 }
 
 function saveBill(){
 
-if(cart.length===0)return alert("No items");
+if(cart.length===0){
+alert("No items")
+return
+}
 
-let invoice=generateInvoice();
-let total=parseFloat(document.getElementById("total").innerText);
+let invoice=generateInvoice()
+
+let total=parseFloat(document.getElementById("total").innerText)
 
 let bill={
 invoice,
 date:new Date().toLocaleString(),
 items:[...cart],
 total
-};
+}
 
-sales.push(bill);
-localStorage.setItem("sales",JSON.stringify(sales));
+sales.push(bill)
+localStorage.setItem("sales",JSON.stringify(sales))
 
-printBill(bill);
+printBill(bill)
 
-clearBill();
-renderSales();
+clearBill()
+renderSales()
+
 }
 
 function renderSales(){
 
-salesBody.innerHTML="";
+salesBody.innerHTML=""
 
 sales.slice().reverse().forEach((s,i)=>{
 
@@ -202,110 +216,92 @@ salesBody.innerHTML+=`
 <td>₹${s.total.toFixed(2)}</td>
 <td><button onclick="printBill(sales[${sales.length-1-i}])">Reprint</button></td>
 </tr>
-`;
+`
 
-});
+})
+
 }
 
 function printBill(bill){
 
-const win=window.open("","PRINT");
+const canvas=document.createElement("canvas")
+const ctx=canvas.getContext("2d")
 
-let html=`
-<html>
-<head>
-<style>
+canvas.width=384
+canvas.height=800
 
-body{
-width:58mm;
-font-family:monospace;
-font-size:12px;
-margin:0;
-padding:5px;
-}
+let y=20
 
-.center{text-align:center}
+ctx.fillStyle="#000"
+ctx.font="16px monospace"
 
-table{
-width:100%;
-font-size:12px;
-}
+const logo=new Image()
+const qr=new Image()
 
-td{
-padding:2px;
-}
+logo.src="logo.png"
+qr.src="qr.jpg"
 
-</style>
-</head>
+logo.onload=function(){
 
-<body>
+ctx.drawImage(logo,120,y,140,60)
+y+=80
 
-<div class="center">
+ctx.fillText("PUSPANJALI STORES",80,y);y+=25
+ctx.fillText("NAC MARKET SHOP NO.147",40,y);y+=20
+ctx.fillText("SAHARPURA, SINDRI",60,y);y+=20
+ctx.fillText("DHANBAD - 828122",70,y);y+=20
+ctx.fillText("Ph:7677812208",80,y);y+=30
 
-<img src="logo.png" width="80"><br>
+ctx.fillText("------------------------------",10,y);y+=20
 
-<b>PUSPANJALI STORES</b><br>
-NAC MARKET SHOP NO.147<br>
-SAHARPURA, SINDRI<br>
-DHANBAD - 828122<br>
-Ph: 7677812208,9771996024<br>
+ctx.fillText("Invoice: "+bill.invoice,10,y);y+=20
+ctx.fillText(bill.date,10,y);y+=25
 
--------------------------------<br>
-
-Invoice: ${bill.invoice}<br>
-${bill.date}<br>
-
--------------------------------
-
-</div>
-
-<table>
-`;
+ctx.fillText("------------------------------",10,y);y+=20
 
 bill.items.forEach((it,i)=>{
 
-html+=`
-<tr>
-<td>${i+1}.${it.name}</td>
-<td>${it.qty}</td>
-<td>${it.rate}</td>
-<td>${(it.qty*it.rate).toFixed(2)}</td>
-</tr>
-`;
+ctx.fillText(`${i+1}. ${it.name}`,10,y)
+ctx.fillText(`${it.qty} x ${it.rate}`,200,y)
+ctx.fillText((it.qty*it.rate).toFixed(2),310,y)
 
-});
+y+=20
 
-html+=`
+})
 
-</table>
+ctx.fillText("------------------------------",10,y);y+=25
 
-<div class="center">
+ctx.font="bold 18px monospace"
+ctx.fillText("TOTAL ₹ "+bill.total.toFixed(2),80,y)
 
--------------------------------<br>
+y+=40
 
-<b>TOTAL ₹ ${bill.total.toFixed(2)}</b><br><br>
+qr.onload=function(){
 
-<img src="qr.jpg" width="120" onerror="this.style.display='none'"><br>
+ctx.drawImage(qr,120,y,140,140)
+y+=160
 
-Scan PhonePe QR<br><br>
+ctx.font="16px monospace"
+ctx.fillText("Scan PhonePe QR",110,y)
 
-In memory of<br>
-Late Shri Jitendra Kumar
+canvas.toBlob(function(blob){
 
-</div>
+const file=new File([blob],"bill.png",{type:"image/png"})
 
-<script>
-window.onload=function(){
-window.print();
+if(navigator.canShare && navigator.canShare({files:[file]})){
+navigator.share({
+files:[file],
+title:"Print Bill"
+})
+}else{
+alert("Sharing not supported on this device")
 }
-<\/script>
 
-</body>
-</html>
-`;
+})
 
-win.document.write(html);
-win.document.close();
+}
+
+}
 
 }
 
