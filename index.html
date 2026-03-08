@@ -6,23 +6,93 @@
 <title>Puspanjali Stores Billing</title>
 
 <style>
+
 body{font-family:Arial;margin:0;background:#f2f2f2}
-.container{max-width:900px;margin:auto;padding:15px}
-.card{background:#fff;padding:15px;margin-bottom:15px;border-radius:8px}
-input,button{padding:8px;margin-top:6px;border-radius:5px;border:1px solid #ccc;width:100%}
+
+.container{
+max-width:900px;
+margin:auto;
+padding:15px
+}
+
+.card{
+background:#fff;
+padding:15px;
+margin-bottom:15px;
+border-radius:8px
+}
+
+input,button{
+padding:8px;
+margin-top:6px;
+border-radius:5px;
+border:1px solid #ccc;
+width:100%
+}
+
 button{cursor:pointer}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px
+}
+
+th,td{
+border-bottom:1px solid #eee;
+padding:8px;
+text-align:left
+}
 
 #loginBox{
-position:fixed;top:0;left:0;right:0;bottom:0;
+position:fixed;
+top:0;
+left:0;
+right:0;
+bottom:0;
 background:#00000080;
-display:flex;align-items:center;justify-content:center
+display:flex;
+align-items:center;
+justify-content:center
 }
 
 #loginCard{
-background:#fff;padding:20px;border-radius:8px;width:300px
+background:#fff;
+padding:20px;
+border-radius:8px;
+width:300px
 }
+
+/* RECEIPT STYLE */
+
+#printArea{
+display:none;
+width:58mm;
+font-family:monospace;
+font-size:12px;
+padding:5px
+}
+
+.center{text-align:center}
+
+@media print{
+
+body *{
+visibility:hidden
+}
+
+#printArea, #printArea *{
+visibility:visible
+}
+
+#printArea{
+position:absolute;
+left:0;
+top:0
+}
+
+}
+
 </style>
 </head>
 
@@ -30,11 +100,16 @@ background:#fff;padding:20px;border-radius:8px;width:300px
 
 <div id="loginBox">
 <div id="loginCard">
+
 <h3>Login</h3>
+
 <input id="user" placeholder="Username">
 <input id="pass" type="password" placeholder="Password">
+
 <button onclick="login()">Login</button>
+
 <p id="loginError" style="color:red;display:none">Invalid Login</p>
+
 </div>
 </div>
 
@@ -61,7 +136,9 @@ background:#fff;padding:20px;border-radius:8px;width:300px
 <th></th>
 </tr>
 </thead>
+
 <tbody id="cartBody"></tbody>
+
 </table>
 
 <h3>Total ₹ <span id="total">0</span></h3>
@@ -71,27 +148,11 @@ background:#fff;padding:20px;border-radius:8px;width:300px
 
 </div>
 
-<div class="card">
-
-<h2>Sales History</h2>
-
-<table>
-<thead>
-<tr>
-<th>Invoice</th>
-<th>Date</th>
-<th>Total</th>
-<th></th>
-</tr>
-</thead>
-
-<tbody id="salesBody"></tbody>
-
-</table>
-
 </div>
 
-</div>
+<!-- RECEIPT AREA -->
+
+<div id="printArea"></div>
 
 <script>
 
@@ -99,16 +160,20 @@ const USERNAME="Puspanjali"
 const PASSWORD="Welcome1"
 
 let cart=[]
-let sales=JSON.parse(localStorage.getItem("sales")||"[]")
 
 function login(){
+
 if(user.value===USERNAME && pass.value===PASSWORD){
+
 loginBox.style.display="none"
 app.style.display="block"
-renderSales()
+
 }else{
+
 loginError.style.display="block"
+
 }
+
 }
 
 function addItem(){
@@ -123,6 +188,7 @@ return
 }
 
 cart.push({name,qty:q,rate:r})
+
 renderCart()
 
 itemName.value=""
@@ -134,6 +200,7 @@ rate.value=""
 function renderCart(){
 
 cartBody.innerHTML=""
+
 let total=0
 
 cart.forEach((c,i)=>{
@@ -159,17 +226,23 @@ document.getElementById("total").innerText=total.toFixed(2)
 }
 
 function removeItem(i){
+
 cart.splice(i,1)
 renderCart()
+
 }
 
 function clearBill(){
+
 cart=[]
 renderCart()
+
 }
 
 function generateInvoice(){
+
 return "INV-"+Date.now()
+
 }
 
 function saveBill(){
@@ -180,72 +253,17 @@ return
 }
 
 let invoice=generateInvoice()
+
 let total=parseFloat(document.getElementById("total").innerText)
 
-let bill={
-invoice,
-date:new Date().toLocaleString(),
-items:[...cart],
-total
-}
-
-sales.push(bill)
-localStorage.setItem("sales",JSON.stringify(sales))
-
-printBill(bill)
-
-clearBill()
-renderSales()
-
-}
-
-function renderSales(){
-
-salesBody.innerHTML=""
-
-sales.slice().reverse().forEach((s,i)=>{
-
-salesBody.innerHTML+=`
-<tr>
-<td>${s.invoice}</td>
-<td>${s.date}</td>
-<td>₹${s.total.toFixed(2)}</td>
-<td><button onclick="printBill(sales[${sales.length-1-i}])">Reprint</button></td>
-</tr>
-`
-
-})
-
-}
-
-function printBill(bill){
-
-let w=window.open("")
-
-let html=`
-<html>
-<head>
-<style>
-body{
-width:58mm;
-font-family:monospace;
-font-size:12px;
-margin:0;
-padding:5px;
-}
-.center{text-align:center}
-table{width:100%}
-td{padding:2px}
-</style>
-</head>
-
-<body>
+let billHTML=`
 
 <div class="center">
 
 <img src="logo.png" width="80" onerror="this.style.display='none'"><br>
 
 <b>PUSPANJALI STORES</b><br>
+
 NAC MARKET SHOP NO.147<br>
 SAHARPURA, SINDRI<br>
 DHANBAD - 828122<br>
@@ -253,30 +271,32 @@ Ph:7677812208<br>
 
 --------------------------------<br>
 
-Invoice: ${bill.invoice}<br>
-${bill.date}<br>
+Invoice: ${invoice}<br>
+${new Date().toLocaleString()}<br>
 
 --------------------------------
 
 </div>
 
-<table>
+<table style="width:100%">
 `
 
-bill.items.forEach((it,i)=>{
+cart.forEach((it,i)=>{
 
-html+=`
+billHTML+=`
+
 <tr>
 <td>${i+1}.${it.name}</td>
 <td>${it.qty}</td>
 <td>${it.rate}</td>
 <td>${(it.qty*it.rate).toFixed(2)}</td>
 </tr>
+
 `
 
 })
 
-html+=`
+billHTML+=`
 
 </table>
 
@@ -284,7 +304,7 @@ html+=`
 
 --------------------------------<br>
 
-<b>TOTAL ₹ ${bill.total.toFixed(2)}</b><br><br>
+<b>TOTAL ₹ ${total.toFixed(2)}</b><br><br>
 
 <img src="qr.jpg" width="120" onerror="this.style.display='none'"><br>
 
@@ -294,19 +314,15 @@ In memory of<br>
 Late Shri Jitendra Kumar
 
 </div>
-
-<script>
-window.onload=function(){
-window.print()
-}
-<\/script>
-
-</body>
-</html>
 `
 
-w.document.write(html)
-w.document.close()
+document.getElementById("printArea").innerHTML=billHTML
+
+document.getElementById("printArea").style.display="block"
+
+window.print()
+
+clearBill()
 
 }
 
